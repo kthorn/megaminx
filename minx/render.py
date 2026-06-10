@@ -88,8 +88,9 @@ def render(m, u_face, f_face, cmap, size=120, cam=None, arrow=None,
             if s.face != fi:
                 continue
             idx = P.ID_TO_IDX[s.id]
-            poly2 = [cam.project(p) for p in s.polygon]
-            pts.extend(poly2)
+            inset = _inset3d(s.polygon, P.NORMALS[fi], 0.028)
+            poly2 = [cam.project(p) for p in inset]
+            pts.extend(cam.project(p) for p in s.polygon)
             color_face = m.state[idx]
             if bright_ids is not None and idx not in bright_ids:
                 fill = '#b9bdc2'
@@ -123,18 +124,21 @@ def render(m, u_face, f_face, cmap, size=120, cam=None, arrow=None,
         out.append(f'<path d="{d}" fill="#111" stroke="#111" '
                    f'stroke-width="{scale*0.06:.2f}" '
                    'stroke-linejoin="round"/>')
+    # stickers: inset in 3D within the face plane (uniform real-world gap,
+    # correctly foreshortened) and drawn with rounded corners
     for poly2, fill in polys:
         p2 = [T(p) for p in poly2]
-        d = 'M' + ' L'.join(f'{x:.1f},{y:.1f}' for x, y in p2) + ' Z'
-        out.append(f'<path d="{d}" fill="{fill}" stroke="#111" '
-                   f'stroke-width="{scale*0.045:.2f}" '
-                   'stroke-linejoin="round"/>')
+        out.append(f'<path d="{_rounded_path(p2)}" fill="{fill}"/>')
     if outline_ids:
         for fi in vis:
             for s in P.STICKERS:
                 if s.face != fi or P.ID_TO_IDX[s.id] not in outline_ids:
                     continue
-                p2 = [T(cam.project(p)) for p in s.polygon]
+                proj = [cam.project(p) for p in s.polygon]
+                c = (sum(p[0] for p in proj) / len(proj),
+                     sum(p[1] for p in proj) / len(proj))
+                p2 = [T((c[0] + 0.97 * (p[0] - c[0]),
+                         c[1] + 0.97 * (p[1] - c[1]))) for p in proj]
                 d = 'M' + ' L'.join(f'{x:.1f},{y:.1f}' for x, y in p2) + ' Z'
                 out.append(f'<path d="{d}" fill="none" stroke="#e02020" '
                            f'stroke-width="{scale*0.10:.2f}" '
@@ -143,6 +147,46 @@ def render(m, u_face, f_face, cmap, size=120, cam=None, arrow=None,
         out.append(_arrow_svg(cam, arrow, T, scale))
     out.append('</svg>')
     return ''.join(out)
+
+
+def _inset3d(poly, normal, m):
+    """Inset a convex planar polygon by margin m within its plane."""
+    c = [sum(p[i] for p in poly) / len(poly) for i in range(3)]
+    out = list(poly)
+    n = len(poly)
+    for i in range(n):
+        a, b = poly[i], poly[(i + 1) % n]
+        edge = G._vsub(b, a)
+        ni = G._norm(G._cross(normal, edge))
+        # make sure ni points inward (toward centroid)
+        if G._dot(G._vsub(c, a), ni) < 0:
+            ni = G._vmul(ni, -1)
+        pt = G._vadd(a, G._vmul(ni, m))
+        out = G._clip(out, pt, ni)
+        if len(out) < 3:
+            return poly  # degenerate; fall back to original
+    return out
+
+
+def _rounded_path(p2, r=0.22):
+    """SVG path for polygon p2 with corners rounded by quadratic beziers."""
+    n = len(p2)
+    if n < 3:
+        return 'M' + ' L'.join(f'{x:.1f},{y:.1f}' for x, y in p2) + ' Z'
+    parts = []
+    for i in range(n):
+        prev = p2[(i - 1) % n]
+        v = p2[i]
+        nxt = p2[(i + 1) % n]
+        p1 = (v[0] + (prev[0] - v[0]) * r, v[1] + (prev[1] - v[1]) * r)
+        q1 = (v[0] + (nxt[0] - v[0]) * r, v[1] + (nxt[1] - v[1]) * r)
+        if i == 0:
+            parts.append(f'M{p1[0]:.1f},{p1[1]:.1f}')
+        else:
+            parts.append(f'L{p1[0]:.1f},{p1[1]:.1f}')
+        parts.append(f'Q{v[0]:.1f},{v[1]:.1f} {q1[0]:.1f},{q1[1]:.1f}')
+    parts.append('Z')
+    return ' '.join(parts)
 
 
 def _expand(verts, factor):

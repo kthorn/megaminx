@@ -9,8 +9,9 @@ from itertools import product
 PHI = (1 + 5 ** 0.5) / 2
 
 # Fraction of the apothem (face-center -> edge distance) at which the layer
-# cuts cross a face.  ~0.72 leaves a large center pentagon like a real minx.
-CUT_FRACTION = 0.30  # cut line sits 30% of the way from the edge to the center
+# cuts cross a face.  Real megaminxes cut deep: the center pentagon spans
+# only ~55-60% of the face.
+CUT_FRACTION = 0.42  # cut line sits 42% of the way from the edge to the center
 
 
 def _vadd(a, b):
