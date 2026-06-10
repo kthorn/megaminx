@@ -278,14 +278,15 @@ def stage2():
                'each star edge must match its side center piece.')}
       {goal_box(goalp)}
       {tips([
-        f'Find a white edge in the bottom part of the puzzle. Turn the bottom '
-        f'faces freely &mdash; they cannot disturb finished star edges on top.',
-        f'Turn that piece until it sits <b>directly below its place</b>: its '
-        f'side color must sit on the matching center color.',
-        f'Then turn that side face <b>twice counter-clockwise</b> (or twice '
-        f'clockwise if the white sticker faces the other way) to bring the '
-        f'edge up into the star. Try it &mdash; this stage is practice and '
-        f'trial-and-error, just like the white cross on your cube!',
+        'Find a white edge in the bottom part of the puzzle. Turning the '
+        'bottom faces never disturbs finished star edges on top.',
+        'Park it on the <b>bottom-right edge of the matching side face</b>, '
+        'white sticker facing <b>down-right</b>; then turn that side face '
+        '<b>twice counter-clockwise</b> &mdash; the edge rises into the star.',
+        'Parked on the <b>bottom-left</b> with white facing down-left? Turn '
+        'the side face <b>twice clockwise</b> instead. This stage is '
+        'practice and trial-and-error, just like the white cross on your '
+        'cube!',
       ])}
       <div class="note">If an edge is <b>in the star but flipped</b> (white
       facing out, like the picture), hold the puzzle so that edge is at the
@@ -503,11 +504,11 @@ def stage5_pairs():
             if tuple(ids) != tuple(eslot)
             and any(probe.state[i] != P.STICKERS[i].face for i in ids)]
     cc = list(corner)
-    case_pics = []
-    found_orients = []
+    by_orient = {}
     import itertools as it
     for perm in it.permutations(cc):
         o = dict(zip(sfaces, perm))
+        okey = tuple(sorted(o.items()))
         for fslot in feed:
             fa, fb = (P.STICKERS[i].face for i in fslot)
             for ca, cb in ((flank[0], flank[1]), (flank[1], flank[0])):
@@ -523,21 +524,21 @@ def stage5_pairs():
                 for i in eslot:
                     m.state[i] = 98
                 mm = m.copy()
-                okrep = None
                 for rep in range(1, 8):
                     P.apply_alg(mm, M.RIGHTY, pn)
                     if all(mm.state[i] == P.STICKERS[i].face for i in cslot) \
                        and all(mm.state[i] == P.STICKERS[i].face
                                for i in eslot):
-                        okrep = rep
+                        prev = by_orient.get(okey)
+                        if prev is None or rep < prev[1]:
+                            by_orient[okey] = (m, rep, set(fslot))
                         break
-                if okrep:
-                    pic = picture(m, pn['U'], pn['F'],
-                                  bright=bright | set(stage_slot) | set(fslot),
-                                  size=92)
-                    case_pics.append((pic, okrep))
-        if len(case_pics) >= 2:
-            break
+    case_pics = []
+    for okey, (m, rep, fset) in sorted(by_orient.items(),
+                                       key=lambda kv: kv[1][1]):
+        pic = picture(m, pn['U'], pn['F'],
+                      bright=bright | set(stage_slot) | fset, size=92)
+        case_pics.append((pic, rep))
 
     demo = P.Minx()
     tiles, _ = tiles_html(demo, pn, M.RIGHTY, pn['U'], pn['F'],
