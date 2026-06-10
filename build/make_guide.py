@@ -699,7 +699,7 @@ def stage8():
                'match its center.')}
       {tips([
         f'Spin the gray top {F("U")} until <b>as many edges as possible</b> '
-        'match their side centers. At least two will match.',
+        'match their side centers.',
         'Hold the puzzle so the two matching edges are at the <b>front</b> '
         'and <b>front-left</b> &mdash; the three wrong ones to the right and '
         'back, like the picture. Then do the sequence; it swaps the three '
@@ -731,16 +731,19 @@ def stage9():
       {banner(9, 'PUT THE GRAY CORNERS<br/>IN THEIR PLACES')}
       {holding(f'{GRAYW} on top. Now move each gray corner <b>between</b> '
                'the two side colors it matches. Twisted is OK &mdash; '
-               'location is all that counts in this stage!')}
+               'location is all that counts! The sequence below cycles the '
+               '<b>front-right, right and back corners</b>; the two '
+               '<b>left corners never move</b>. Count how many corners sit '
+               'between their right colors, then:')}
       {tips([
-        'Find corners that are already <b>between the right colors</b>. '
-        'Hold the puzzle so two correct corners are on the <b>left side</b> '
-        '(front-left and back-left) &mdash; the three wrong ones at front-right, '
-        'right and back.',
-        'Do the sequence: it cycles the three wrong corners. Repeat from the '
-        'same hold if needed.',
-        'Fewer than two correct? Do the sequence once from any position and '
-        'look again.',
+        '<b>2 correct, side by side:</b> hold them as the two LEFT corners. '
+        'Sequence once &mdash; not done? once more.',
+        '<b>2 correct, apart:</b> hold one just right of the back corner and '
+        'one at back-left. Sequence once, then re-count.',
+        '<b>1 correct:</b> hold it at the FRONT-LEFT. Sequence once, '
+        're-count.',
+        '<b>0 correct:</b> sequence once from anywhere; if nothing improved, '
+        'same hold once more. Re-count.',
       ])}
       <div class="demoline">{beforep}</div>
       {tiles}
