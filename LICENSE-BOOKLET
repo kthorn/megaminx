@@ -1,0 +1,13 @@
+The Megaminx Solution Guide booklet (Megaminx_Solution_Guide.pdf, out/guide.pdf,
+and the rendered booklet content — text, diagrams, and layout) is licensed under
+the Creative Commons Attribution 4.0 International License (CC BY 4.0).
+
+You are free to share and adapt the booklet for any purpose, even commercially,
+as long as you give appropriate credit to the author (Kurt Thorn), provide a
+link to the license, and indicate if changes were made.
+
+Full license text: https://creativecommons.org/licenses/by/4.0/legalcode
+Human-readable summary: https://creativecommons.org/licenses/by/4.0/
+
+The source code in this repository (minx/, build/, tests/) is separately
+licensed under the MIT License — see the LICENSE file.
