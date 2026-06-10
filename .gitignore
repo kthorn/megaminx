@@ -1,0 +1,3 @@
+reference/
+*.png
+__pycache__/
