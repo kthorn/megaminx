@@ -158,6 +158,74 @@ class Solver:
                     q.append((s2, p2))
         return False
 
+    def ferry(self, piece_colors, target_ids, orient=None, extra=None,
+              extra_faces=()):
+        """Bring a piece to target: direct BFS first; if that fails, lift it
+        into the gray layer, then walk it around and drop it in."""
+        find = find_corner if len(piece_colors) == 3 else find_edge
+
+        def local_faces():
+            cur = find(self.m, piece_colors)
+            return {P.STICKERS[i].face for i in cur}
+
+        base_faces = set(self.free_faces()) | set(extra_faces)
+        tgt_faces = {P.STICKERS[i].face for i in target_ids}
+        # leg 0: direct
+        if self.bfs_to(piece_colors, target_ids, depth=4,
+                       faces=sorted(base_faces | tgt_faces | local_faces()),
+                       orient=orient, extra=extra):
+            return True
+        # leg 1: into the gray layer
+        gray = self.gray
+        cur = find(self.m, piece_colors)
+        if gray not in {P.STICKERS[i].face for i in cur}:
+            in_gray = []
+            n = 3 if len(piece_colors) == 3 else 2
+
+            def to_gray(state):
+                mm = P.Minx(list(state))
+                ids = find(mm, piece_colors)
+                return gray in {P.STICKERS[i].face for i in ids}
+
+            # BFS targeting "any gray-layer position": reuse bfs_to by trying
+            # each gray slot as target is wasteful; do a custom mini-BFS
+            from collections import deque
+            solved_flat = [(i, P.STICKERS[i].face)
+                           for ids in self.solved for i in ids]
+            faces = sorted(base_faces | local_faces())
+            start = tuple(self.m.state)
+            seen = {start}
+            q = deque([(start, [])])
+            okpath = None
+            while q and okpath is None:
+                state, path = q.popleft()
+                if len(path) >= 3:
+                    continue
+                for f in faces:
+                    for t in (1, -1, 2, -2):
+                        mm = P.Minx(list(state)).turn(f, t)
+                        s2 = tuple(mm.state)
+                        if s2 in seen:
+                            continue
+                        seen.add(s2)
+                        p2 = path + [(f, t)]
+                        if to_gray(s2) and \
+                           all(s2[i] == c for i, c in solved_flat) and \
+                           (extra is None or extra(s2)):
+                            okpath = p2
+                            break
+                        q.append((s2, p2))
+                    if okpath:
+                        break
+            if okpath:
+                for f, t in okpath:
+                    self.m.turn(f, t)
+        # leg 2: from wherever it is now, direct again
+        return self.bfs_to(piece_colors, target_ids, depth=4,
+                           faces=sorted(base_faces | tgt_faces
+                                        | local_faces() | {gray}),
+                           orient=orient, extra=extra)
+
     def try_insert(self, slot_ids, stage_fn, grips):
         """Try each grip via stage_fn until one solves the slot without
         disturbing solved pieces. stage_fn(grip) must attempt the insert on a
@@ -224,11 +292,11 @@ class Solver:
         stage_slot = CORNER_SLOTS[corner_key((f, r, names['DR']))]
         cur = find_corner(self.m, colors)
         if tuple(cur) != tuple(slot):
-            if not self.bfs_to(colors, stage_slot, depth=4):
+            if not self.ferry(colors, stage_slot):
                 # stuck in a non-free slot: eject it with one righty there,
                 # then try staging again
                 self._eject_corner(find_corner(self.m, colors))
-                if not self.bfs_to(colors, stage_slot, depth=4):
+                if not self.ferry(colors, stage_slot):
                     raise MethodError(f"cannot stage corner {colors}")
         for rep in range(15):
             if all(self.m.state[i] == P.STICKERS[i].face for i in slot):
@@ -276,13 +344,17 @@ class Solver:
             for k in range(5):
                 attempts.append((mirror, k))
 
-        for round_ in range(5):
+        for round_ in range(6):
             if round_:
                 cur = find_edge(self.m, colors)
                 if tuple(cur) == tuple(slot):
-                    pass  # in-slot case is handled inside _edge_attempt
-                elif not self._eject_edge(cur):
-                    break
+                    # stuck flipped in its own slot: kick it out for real
+                    if not self._eject_edge(cur, skip=round_ - 1) and \
+                       not self._eject_edge(cur):
+                        break
+                elif not self._eject_edge(cur, skip=round_ - 1):
+                    if not self._eject_edge(cur):
+                        break
             for mirror, k in attempts:
                 backup = self.m.copy()
                 try:
@@ -295,9 +367,10 @@ class Solver:
                 self.m = backup
         raise MethodError(f"no safe edge insert for {slot_faces}")
 
-    def _eject_edge(self, cur_ids):
+    def _eject_edge(self, cur_ids, skip=0):
         """Edge sits in a slot unreachable by free faces; kick it out with one
-        insert alg at that slot, keeping solved pieces intact."""
+        insert alg at that slot, keeping solved pieces intact.  skip>0 picks a
+        later working ejection (different landing position/flip)."""
         fa, fb = (P.STICKERS[i].face for i in cur_ids)
         helpers = [h for h in P.ADJ[fa] if h in P.ADJ[fb]]
         for h in helpers:
@@ -320,6 +393,10 @@ class Solver:
                             self.m.turn(h, -k)
                         try:
                             self.assert_solved_intact("edge eject")
+                            if skip > 0:
+                                skip -= 1
+                                self.m = backup
+                                continue
                             return True
                         except MethodError:
                             self.m = backup
@@ -370,12 +447,11 @@ class Solver:
             alg = INSERT_RIGHT if mirror == 'R' else INSERT_LEFT
             seq = ('U ' if k else '') * 0  # placeholder, ejection without conj
             P.apply_alg(self.m, alg, names)
-        # stage with BFS over free faces plus the helper; done() requires all
-        # solved pieces back intact, so helper excursions must self-cancel.
-        free = set(self.free_faces())
-        free.add(helper)
-        if not self.bfs_to(colors, stage_slot, depth=4, faces=sorted(free),
-                           orient={stage_face: front, helper: side}):
+        # stage via ferry (helper excursions must self-cancel; the
+        # solved-intact check inside enforces that)
+        if not self.ferry(colors, stage_slot,
+                          orient={stage_face: front, helper: side},
+                          extra_faces=(helper,)):
             return False
         alg = INSERT_RIGHT if mirror == 'R' else INSERT_LEFT
         moves = []
@@ -512,11 +588,11 @@ class Solver:
             # make sure the corner is in the righty cycle (slot or staging)
             cur = find_corner(self.m, corner_colors)
             if tuple(cur) != tuple(cslot) and tuple(cur) != tuple(stage_c):
-                if not self.bfs_to(corner_colors, stage_c, depth=4,
-                                   faces=cfaces()):
+                if not self.ferry(corner_colors, stage_c,
+                                  extra_faces=cfaces()):
                     self._eject_corner(find_corner(self.m, corner_colors))
-                    if not self.bfs_to(corner_colors, stage_c, depth=4,
-                                       faces=cfaces()):
+                    if not self.ferry(corner_colors, stage_c,
+                                      extra_faces=cfaces()):
                         raise MethodError("pair: cannot stage corner")
 
             for phase in range(6):
@@ -547,10 +623,10 @@ class Solver:
                                    (flank_colors[1], flank_colors[0])):
                         backup = self.m.copy()
                         nsolved = len(self.solved)
-                        if self.bfs_to(flank_colors, fslot, depth=4,
-                                       faces=cfaces(),
-                                       orient={fa: ca, fb: cb},
-                                       extra=corner_pinned):
+                        if self.ferry(flank_colors, fslot,
+                                      orient={fa: ca, fb: cb},
+                                      extra=corner_pinned,
+                                      extra_faces=cfaces()):
                             if finish(backup, nsolved):
                                 return
                         else:

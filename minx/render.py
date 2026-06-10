@@ -73,10 +73,12 @@ def visible_faces(cam):
 
 
 def render(m, u_face, f_face, cmap, size=120, cam=None, arrow=None,
-           dim_faces=None, only_layer=None, pad=4):
+           dim_faces=None, bright_ids=None, outline_ids=None,
+           only_layer=None, pad=4):
     """SVG of state m.  arrow: (face, +1/-1 clicks) draws a turn arrow.
     dim_faces: set of faces to render grayed out (booklet 'color doesn't
-    matter' convention)."""
+    matter' convention).  bright_ids: if given, only these sticker indices
+    keep their colour; everything else is grayed."""
     cam = cam or Camera(u_face, f_face)
     vis = visible_faces(cam)
     pts = []
@@ -85,11 +87,16 @@ def render(m, u_face, f_face, cmap, size=120, cam=None, arrow=None,
         for i, s in enumerate(P.STICKERS):
             if s.face != fi:
                 continue
+            idx = P.ID_TO_IDX[s.id]
             poly2 = [cam.project(p) for p in s.polygon]
             pts.extend(poly2)
-            color_face = m.state[P.ID_TO_IDX[s.id]]
-            if dim_faces and color_face in dim_faces:
+            color_face = m.state[idx]
+            if bright_ids is not None and idx not in bright_ids:
                 fill = '#b9bdc2'
+            elif dim_faces and color_face in dim_faces:
+                fill = '#b9bdc2'
+            elif color_face not in cmap:
+                fill = '#b9bdc2'   # sentinel "unknown" sticker
             else:
                 fill = PALETTE[cmap[color_face]]
             polys.append((poly2, fill))
@@ -122,6 +129,16 @@ def render(m, u_face, f_face, cmap, size=120, cam=None, arrow=None,
         out.append(f'<path d="{d}" fill="{fill}" stroke="#111" '
                    f'stroke-width="{scale*0.045:.2f}" '
                    'stroke-linejoin="round"/>')
+    if outline_ids:
+        for fi in vis:
+            for s in P.STICKERS:
+                if s.face != fi or P.ID_TO_IDX[s.id] not in outline_ids:
+                    continue
+                p2 = [T(cam.project(p)) for p in s.polygon]
+                d = 'M' + ' L'.join(f'{x:.1f},{y:.1f}' for x, y in p2) + ' Z'
+                out.append(f'<path d="{d}" fill="none" stroke="#e02020" '
+                           f'stroke-width="{scale*0.10:.2f}" '
+                           'stroke-linejoin="round"/>')
     if arrow:
         out.append(_arrow_svg(cam, arrow, T, scale))
     out.append('</svg>')

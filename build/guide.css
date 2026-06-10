@@ -1,0 +1,181 @@
+@font-face { font-family: 'Luckiest Guy';
+  src: url('assets/fonts/LuckiestGuy.ttf'); }
+@font-face { font-family: 'Baloo 2';
+  src: url('assets/fonts/Baloo2-Regular.ttf'); font-weight: 400; }
+@font-face { font-family: 'Baloo 2';
+  src: url('assets/fonts/Baloo2-SemiBold.ttf'); font-weight: 600; }
+@font-face { font-family: 'Baloo 2';
+  src: url('assets/fonts/Baloo2-ExtraBold.ttf'); font-weight: 800; }
+
+@page { size: 5.5in 7.5in; margin: 0; }
+body { margin: 0; font-family: 'Baloo 2', sans-serif; font-size: 8.3pt;
+       color: #15233b; line-height: 1.25; }
+
+.page {
+  width: 5.5in; height: 7.5in; page-break-after: always;
+  box-sizing: border-box; padding: 0.28in 0.3in 0.42in 0.3in;
+  position: relative; overflow: hidden;
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(255,255,255,0.55), rgba(255,255,255,0) 45%),
+    radial-gradient(ellipse at 85% 35%, rgba(255,255,255,0.35), rgba(255,255,255,0) 40%),
+    radial-gradient(ellipse at 40% 80%, rgba(0,40,120,0.25), rgba(0,40,120,0) 50%),
+    linear-gradient(160deg, #8ec9f5 0%, #4a9de0 30%, #2f7fd0 55%, #6db5ec 80%, #3f8fd8 100%);
+}
+
+/* ---------- header ---------- */
+.topbar { display: flex; align-items: flex-start; margin-bottom: 7pt; }
+.stagebadge {
+  background: linear-gradient(#ffe34d, #ffc400);
+  border: 2.2pt solid #fff; border-radius: 16pt;
+  color: #123a8c; font-family: 'Luckiest Guy';
+  font-size: 13pt; padding: 4pt 9pt 1pt 9pt; transform: rotate(-4deg);
+  box-shadow: 1.5pt 1.5pt 2.5pt rgba(0,0,30,0.35); white-space: nowrap;
+}
+.banner {
+  flex: 1; margin-left: 8pt; text-align: center;
+  background: linear-gradient(#2b6fd2, #123a8c);
+  border-radius: 12pt; border: 2pt solid #7fb8ef;
+  color: #fff200; font-family: 'Luckiest Guy';
+  font-size: 12.5pt; padding: 4pt 8pt 2pt 8pt; line-height: 1.1;
+  text-shadow: 1pt 1pt 0 #0a2050;
+}
+.banner.wide { margin-left: 0; }
+
+/* ---------- common blocks ---------- */
+.holding { margin: 4pt 0; }
+.holdhead { color: #0fa84e; font-family: 'Luckiest Guy'; font-size: 10.5pt; }
+.tips { margin: 3pt 0; }
+.tiphead { display: inline-block; background: #ffc400; color: #123a8c;
+  font-family: 'Luckiest Guy'; font-size: 9.5pt; border-radius: 8pt;
+  padding: 2pt 7pt 0 7pt; border: 1.5pt solid #fff; }
+.tips ul { margin: 3pt 0 0 14pt; padding: 0; }
+.tips li { margin-bottom: 2.5pt; }
+.note { background: rgba(255,255,255,0.75); border-radius: 6pt;
+  padding: 4pt 7pt; margin: 4pt 0; }
+.veryimportant { color: #d40000; font-family: 'Luckiest Guy';
+  font-size: 11pt; margin-top: 5pt; }
+.facelet { font-weight: 800; }
+
+/* goal callout */
+.goal { float: right; width: 1.25in; text-align: center; margin: 0 0 4pt 6pt; }
+.goal img { width: 1.15in; }
+.goalstar {
+  background: radial-gradient(#fff7c0, #ffc400);
+  border: 2pt solid #fff; border-radius: 50%;
+  transform: rotate(-6deg);
+  color: #d40000; font-family: 'Luckiest Guy'; font-size: 9pt;
+  padding: 5pt 4pt 3pt 4pt; margin: -8pt auto 0 auto; width: 0.85in;
+  box-shadow: 1pt 1pt 2pt rgba(0,0,30,0.3);
+}
+
+/* move tiles */
+.tiles { display: flex; flex-wrap: wrap; gap: 3pt; margin: 4pt 0;
+         justify-content: flex-start; }
+.tile { text-align: center; }
+.tile img { width: 0.54in; display: block; margin: 0 auto;
+  background: rgba(255,255,255,0.85); border-radius: 5pt; padding: 1.5pt; }
+.movebox {
+  margin: 1.5pt auto 0 auto; width: 0.44in;
+  background: linear-gradient(#2b6fd2, #123a8c);
+  border: 1.6pt solid #fff; border-radius: 5pt;
+  color: #fff; font-family: 'Luckiest Guy'; font-size: 11pt;
+  padding: 2.5pt 0 0.5pt 0;
+}
+.movebox i { font-size: 8pt; }
+
+/* congratulations */
+.congrats { margin-top: 6pt; }
+.congratsbanner {
+  background: linear-gradient(#ffe34d, #ffc400);
+  border: 2pt solid #fff; border-radius: 14pt; transform: rotate(-1.5deg);
+  display: inline-block; color: #d40000; font-family: 'Luckiest Guy';
+  font-size: 12pt; padding: 3pt 12pt 1pt 12pt;
+  box-shadow: 1pt 1pt 2pt rgba(0,0,30,0.3);
+}
+.congratsbody {
+  background: #0fa84e; color: #fff; border-radius: 8pt;
+  border: 2pt solid #b9f0cd; padding: 5pt 8pt; margin-top: 2pt;
+  font-weight: 600;
+}
+
+/* page number */
+.pagenum {
+  position: absolute; bottom: 0.16in;
+  background: linear-gradient(#ffe34d, #ffc400);
+  border: 1.6pt solid #fff; border-radius: 50%;
+  width: 16pt; height: 16pt; text-align: center;
+  font-family: 'Luckiest Guy'; font-size: 10pt; color: #123a8c;
+  padding-top: 2pt; box-sizing: border-box;
+}
+.pagenum.left { left: 0.2in; }
+.pagenum.right { right: 0.2in; }
+
+/* ---------- stage 1 ---------- */
+.defs { font-family: 'Luckiest Guy'; font-size: 11pt; color: #123a8c;
+  border-bottom: 1.6pt solid #123a8c; margin: 2pt 0 4pt 0; }
+.parts { font-family: 'Luckiest Guy'; font-size: 10pt; color: #fff;
+  text-shadow: 1pt 1pt 0 #0a2050; }
+.partrow { display: flex; align-items: center; gap: 8pt; margin: 3pt 0; }
+.parttext { flex: 1; font-weight: 600; font-size: 8.3pt; }
+.parthead { font-family: 'Luckiest Guy'; font-size: 10.5pt; }
+.partrow img { width: 0.95in; }
+
+/* ---------- notation ---------- */
+.notrow { margin: 1.5pt 0; }
+.bigletter { font-family: 'Luckiest Guy'; font-size: 14pt; width: 16pt;
+  display: inline-block; }
+.noteq { font-weight: 800; margin: 0 3pt; }
+.notdesc { font-size: 8pt; }
+.tiles.wrap .tile img { width: 0.5in; }
+.tiles.wrap .movebox { width: 0.42in; font-size: 9.5pt; }
+
+/* ---------- demo line ---------- */
+.demoline { display: flex; align-items: center; gap: 6pt; }
+.demoline > img { width: 0.85in; }
+
+/* ---------- cover ---------- */
+.coverpage { background:
+  radial-gradient(ellipse at 50% 25%, rgba(255,255,255,0.5), rgba(255,255,255,0) 50%),
+  linear-gradient(165deg, #9ed4f8 0%, #3d8fd6 35%, #1d63b8 60%, #5aa7e6 85%, #2f7fd0 100%);
+  text-align: center; }
+.coverlogo { margin-top: 0.35in; }
+.coverdiamond { display: none; }
+.covertitle {
+  font-family: 'Luckiest Guy'; font-size: 40pt; color: #fff200;
+  text-shadow: 2.5pt 2.5pt 0 #d40000, 5pt 5pt 6pt rgba(0,0,40,0.5);
+  transform: rotate(-3deg);
+}
+.coverribbon {
+  display: inline-block; background: linear-gradient(#ff9d2e, #e07000);
+  color: #fff; font-family: 'Luckiest Guy'; font-size: 9pt;
+  border-radius: 10pt; border: 2pt solid #ffd9a0;
+  padding: 3pt 14pt 1pt 14pt; margin-top: 2pt; transform: rotate(-2deg);
+}
+.coversub {
+  font-family: 'Luckiest Guy'; font-size: 24pt; color: #fff200;
+  text-shadow: 1.5pt 1.5pt 0 #1d63b8, 3pt 3pt 4pt rgba(0,0,40,0.45);
+  margin-top: 0.25in; transform: rotate(-2deg);
+}
+.coverhero { margin-top: 0.18in; }
+.coverhero img { width: 2.9in; filter: drop-shadow(4pt 6pt 6pt rgba(0,0,40,0.45)); }
+.coverunlock {
+  font-family: 'Luckiest Guy'; font-size: 19pt; color: #fff200;
+  text-shadow: 1.5pt 1.5pt 0 #0fa84e, 3pt 3pt 4pt rgba(0,0,40,0.45);
+  margin-top: 0.18in;
+}
+
+.seqlabel { font-family: 'Luckiest Guy'; font-size: 9.5pt; color: #fff;
+  text-shadow: 1pt 1pt 0 #0a2050; margin-top: 3pt; }
+.stephead { font-family: 'Luckiest Guy'; font-size: 11pt; color: #d40000;
+  text-shadow: 0.5pt 0.5pt 0 #fff; margin: 2pt 0; }
+.cases { display: flex; gap: 6pt; justify-content: center; margin: 3pt 0; }
+.cases img { width: 0.85in; }
+.case { flex: 1; text-align: center; }
+.paircase { text-align: center; }
+.pcap { font-size: 7.4pt; font-weight: 600; background: rgba(255,255,255,0.75);
+  border-radius: 5pt; padding: 2pt 4pt; margin-top: 1.5pt; }
+.funhead { font-family: 'Luckiest Guy'; font-size: 14pt; color: #fff200;
+  text-shadow: 1.5pt 1.5pt 0 #0fa84e; transform: rotate(-2deg);
+  margin: 6pt 0 4pt 0; }
+.backcredit { text-align: center; color: #fff; font-weight: 600;
+  margin-top: 12pt; font-size: 8pt; }
