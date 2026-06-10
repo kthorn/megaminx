@@ -350,8 +350,8 @@ def stage3():
         'face three ways &mdash; the sequence works for all of them!',
       ])}
       <div class="cases">{''.join(case_pics)}</div>
-      <div class="note">Now do this sequence <b>over and over</b> (2, 4 or up
-      to 6 times) <b>UNTIL</b> the corner pops into place with white on top:</div>
+      <div class="note">Now do this sequence <b>over and over</b> (1, 3 or
+      5 times) <b>UNTIL</b> the corner pops into place with white on top:</div>
       {tiles}
       <div class="note"><b>NOTE!</b> If a white corner is stuck in the top
       layer in the wrong spot or twisted, hold the puzzle so it is at the
@@ -577,13 +577,17 @@ def stage5_pairs():
 S6 = {'corner': (0, 3, 8), 'grip_u': 0, 'grip_f': 3, 'ridge': (3, 4)}
 
 
-def stage6():
+def s6_bright():
     bright = s4_bright()
     s = M.Solver(P.Minx(), WHITE)
     for pn2, c2, l2, f2 in s._petals():
         bright |= set(piece_ids('edge', l2)) | set(piece_ids('edge', f2))
         bright |= set(piece_ids('corner', c2))
+    return bright
 
+
+def stage6_corners():
+    bright = s6_bright()
     grip = P.name_faces(S6['grip_u'], S6['grip_f'])
     cslot = piece_ids('corner', S6['corner'])
     stage_slot = piece_ids('corner',
@@ -595,34 +599,71 @@ def stage6():
                           bright=bright | set(stage_slot) | set(cslot))
     holdpic = picture(P.Minx(), grip['U'], grip['F'],
                       bright=bright | set(cslot), size=88)
-
-    rgrip = P.name_faces(GRAY, S6['ridge'][0])
-    rslot = piece_ids('edge', S6['ridge'])
-    rdemo = P.Minx()
-    P.apply_alg(rdemo, "Fi Ui F U R U Ri Ui", rgrip)
-    rtiles, _ = tiles_html(rdemo, rgrip, M.INSERT_RIGHT, GRAY, rgrip['F'],
-                           bright=bright | set(rslot))
     body = f'''
       {banner(6, 'THE LAST ROW OF CORNERS<br/>AND EDGES')}
       <div class="stephead">1<sup>st</sup> Step: the five low corners</div>
       <div class="demoline"><div class="note" style="flex:1">Tilt the puzzle
       even further: hold it so an empty low corner slot is at the top
-      front-right (picture). Park the matching corner below it and repeat the
-      Stage-3 sequence until it pops in &mdash; <b>exactly like before</b>.
-      The staging area is now next to the {GRAYW} face, which is still
-      unsolved, so nothing can break.</div>{holdpic}</div>
+      front-right (picture). The {GRAYW} face is now at the bottom-right.
+      Only the gray layer is still free, so <b>turning gray is the ONLY safe
+      way to move corners around!</b></div>{holdpic}</div>
+      {tips([
+        'Turn <b>gray</b> until the matching corner parks right below its '
+        'slot &mdash; any twist is fine.',
+        'Then repeat the Stage-3 sequence until the corner pops in '
+        '(1, 3 or 5 times), just like before:',
+      ])}
       {tiles}
+      <div class="note"><b>NOTE!</b> Corner stuck in another low slot, or
+      twisted in its own? Hold <b>that</b> slot at the top front-right and do
+      the sequence <b>once</b> &mdash; the corner drops out next to gray.
+      Then park it and place it the normal way.</div>
+      <div class="note">All five low corners in? Continue to the
+      2<sup>nd</sup> Step on the next page.</div>
+    '''
+    page(body, 8)
+
+
+def stage6_edges():
+    bright = s6_bright()
+    # low corners are now solved too
+    for key in M.CORNER_SLOTS:
+        fs = set(key)
+        if GRAY not in fs and WHITE not in fs:
+            bright |= set(piece_ids('corner', key))
+    rgrip = P.name_faces(GRAY, S6['ridge'][0])
+    assert rgrip['R'] == S6['ridge'][1]
+    rslot = piece_ids('edge', S6['ridge'])
+    rdemo = P.Minx()
+    P.apply_alg(rdemo, "Fi Ui F U R U Ri Ui", rgrip)
+    rtiles, _ = tiles_html(rdemo, rgrip, M.INSERT_RIGHT, GRAY, rgrip['F'],
+                           bright=bright | set(rslot))
+    lgrip = P.name_faces(GRAY, S6['ridge'][1])
+    assert lgrip['L'] == S6['ridge'][0]
+    ldemo = P.Minx()
+    P.apply_alg(ldemo, "F U Fi Ui Li Ui L U", lgrip)
+    ltiles, _ = tiles_html(ldemo, lgrip, M.INSERT_LEFT, GRAY, lgrip['F'],
+                           bright=bright | set(rslot))
+    body = f'''
+      {banner(6, 'THE LAST ROW OF CORNERS<br/>AND EDGES')}
       <div class="stephead">2<sup>nd</sup> Step: the five ridge edges</div>
       <div class="note">Now turn the puzzle so {GRAYW} is <b>on top</b> &mdash;
-      and keep it there until the very end! The last five non-gray edges sit
-      just below the gray face. Use the Stage-4 sequences: turn the gray top
-      until the edge makes its straight line with the front center, then drop
-      it right or left:</div>
+      and keep it there until the very end! The last five non-gray edges
+      belong just below the gray top. Find one <b>in the gray top</b>: turn
+      the top until it makes a straight line with the front center. Its top
+      color points where it must go:</div>
+      <div class="seqlabel">1) Top color points RIGHT:</div>
       {rtiles}
+      <div class="seqlabel">2) Top color points LEFT:</div>
+      {ltiles}
+      <div class="note"><b>NOTE!</b> Edge missing from the gray top? It is
+      stuck in a slot &mdash; maybe backwards in its own! Hold that slot at
+      the front-right and do sequence 1 <b>once</b>: the edge jumps up into
+      the gray top. Then drop it in the normal way.</div>
       {congrats('Everything except the gray top layer is done &mdash; '
                 'you are two thirds of the way! On to <b>Stage 7</b>.')}
     '''
-    page(body, 8)
+    page(body, 9)
 
 
 # --- stage 7: gray star --------------------------------------------------------
@@ -680,7 +721,7 @@ def stage7():
       {tiles}
       {congrats('Gray star on top? Excellent &mdash; <b>Stage 8</b>!')}
     '''
-    page(body, 9)
+    page(body, 10)
 
 
 # --- stage 8: position the star edges ------------------------------------------
@@ -710,7 +751,7 @@ def stage8():
       <div class="demoline">{beforep}{tiles}</div>
       {congrats('Star perfect all around? <b>Stage 9</b> awaits!')}
     '''
-    page(body, 10)
+    page(body, 11)
 
 
 # --- stage 9: position the gray corners -----------------------------------------
@@ -750,7 +791,7 @@ def stage9():
       {congrats('All five corners between their right colors? One stage '
                 'to go!')}
     '''
-    page(body, 11)
+    page(body, 12)
 
 
 # --- stage 10: twist the gray corners -------------------------------------------
@@ -781,7 +822,7 @@ def stage10():
                 'colors, all 50 pieces. You have unlocked the secret!')}
       <div style="text-align:center">{hero}</div>
     '''
-    page(body, 12)
+    page(body, 13)
 
 
 # --- back page -------------------------------------------------------------------
@@ -824,7 +865,8 @@ def build(pages_only=None):
     stage4()
     stage5_edges()
     stage5_pairs()
-    stage6()
+    stage6_corners()
+    stage6_edges()
     stage7()
     stage8()
     stage9()
