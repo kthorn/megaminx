@@ -603,10 +603,10 @@ def stage6_corners():
       {banner(6, 'THE LAST ROW OF CORNERS<br/>AND EDGES')}
       <div class="stephead">1<sup>st</sup> Step: the five low corners</div>
       <div class="demoline"><div class="note" style="flex:1">Tilt the puzzle
-      even further: hold it so an empty low corner slot is at the top
-      front-right (picture). The {GRAYW} face is now at the bottom-right.
-      Only the gray layer is still free, so <b>turning gray is the ONLY safe
-      way to move corners around!</b></div>{holdpic}</div>
+      even further: hold it so a low corner slot that still needs its corner
+      is at the top front-right (picture). The {GRAYW} face is now at the
+      bottom-right. Only the gray layer is still free, so <b>turning gray is
+      the ONLY safe way to move corners around!</b></div>{holdpic}</div>
       {tips([
         'Turn <b>gray</b> until the matching corner parks right below its '
         'slot &mdash; any twist is fine.',
@@ -614,9 +614,14 @@ def stage6_corners():
         '(1, 3 or 5 times), just like before:',
       ])}
       {tiles}
-      <div class="note"><b>NOTE!</b> Corner stuck in another low slot, or
-      twisted in its own? Hold <b>that</b> slot at the top front-right and do
-      the sequence <b>once</b> &mdash; the corner drops out next to gray.
+      <div class="note"><b>Wrong corner sitting in the slot?</b> If it shows
+      any <b>gray</b>, it belongs up in the gray layer &mdash; the sequence
+      kicks it out all by itself while your corner goes in. Park your corner
+      below and go: it still takes 1, 3 or 5 rounds, and nothing solved gets
+      hurt.</div>
+      <div class="note"><b>NOTE!</b> Your corner stuck in another low slot,
+      or twisted in its own? Hold <b>that</b> slot at the top front-right and
+      do the sequence <b>once</b> &mdash; the corner drops out next to gray.
       Then park it and place it the normal way.</div>
       <div class="note">All five low corners in? Continue to the
       2<sup>nd</sup> Step on the next page.</div>
