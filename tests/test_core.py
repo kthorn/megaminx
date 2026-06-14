@@ -2,6 +2,7 @@
 from minx import spec
 from minx import geometry
 from minx import spec as _spec
+from minx import pieces
 
 
 def test_specs():
@@ -41,10 +42,18 @@ def test_build_kilominx_not_yet():
     raise AssertionError("kilominx subdivision should be unimplemented in Phase A")
 
 
+def test_build_pieces():
+    _, faces, stickers = geometry.build(_spec.MEGAMINX_SPEC)
+    corners, edges = pieces.build_pieces(stickers, faces, has_edges=True)
+    assert len(corners) == 20 and all(len(v) == 3 for v in corners.values())
+    assert len(edges) == 30 and all(len(v) == 2 for v in edges.values())
+
+
 def main():
     test_specs()
     test_build_megaminx()
     test_build_kilominx_not_yet()
+    test_build_pieces()
     print("test_core: OK")
 
 
