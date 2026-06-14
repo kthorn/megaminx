@@ -460,7 +460,12 @@ from . import pieces
 from . import spec as _spec
 
 
-class Minx:
+class _Minx:
+    # Private class. The public surface is `puzzle.minx()` and the
+    # backward-compat module-level `Minx(...)` factory defined at the bottom.
+    # The class is NOT named `Minx` because the compat factory takes that name
+    # at module scope and would otherwise shadow this class inside the methods
+    # below (which look up names against module globals at call time).
     def __init__(self, puzzle, colors=None):
         self.puzzle = puzzle
         self.state = list(colors) if colors is not None else \
@@ -470,7 +475,7 @@ class Minx:
     def copy(self):
         # Exploratory copies start with a fresh history; only the solver's
         # working cube accumulates the move record.
-        return Minx(self.puzzle, self.state)
+        return _Minx(self.puzzle, self.state)
 
     def turn(self, fi, times=1):
         """times>0 = clockwise fifth-turns viewed facing that face."""
@@ -519,7 +524,7 @@ class Puzzle:
                            for ids in self.edges.values()}
 
     def minx(self, colors=None):
-        return Minx(self, colors)
+        return _Minx(self, colors)
 
     def _piece_key(self, ids):
         return tuple(sorted(self.stickers[i].face for i in ids))
@@ -646,8 +651,10 @@ name_faces = MEGAMINX.name_faces
 
 
 def Minx(colors=None):          # noqa: N802 - compat factory, was a class
-    """Backward-compatible factory: a megaminx Minx. New code should prefer
-    `puzzle.minx()` on an explicit Puzzle instance."""
+    """Backward-compatible factory: a megaminx Minx (an `_Minx` bound to the
+    megaminx instance). New code should prefer `puzzle.minx()` on an explicit
+    Puzzle instance. This name intentionally shadows nothing problematic: the
+    class is `_Minx`, so `Puzzle.minx`/`_Minx.copy` resolve correctly."""
     return MEGAMINX.minx(colors)
 
 
@@ -663,7 +670,7 @@ pieces.ALL_PIECES = MEGAMINX.all_pieces
 
 > Note the top of this file imports `from . import pieces`; `Puzzle.__init__` calls `pieces.build_pieces(self.stickers, self.faces, has_edges=spec.has_edges)`.
 
-> Behavior notes preserved from the original: `turn` normalizes `times %= 5`; `name_faces`, `_adjacent`, `_opposites`, `parse_alg`, `apply_alg` bodies are unchanged except for `self.`/`math.` qualification. The compat `Minx` is now a factory function, not a class — every existing call site uses it as `Minx(...)`/`Minx()` so this is transparent.
+> Behavior notes preserved from the original: `turn` normalizes `times %= 5`; `name_faces`, `_adjacent`, `_opposites`, `parse_alg`, `apply_alg` bodies are unchanged except for `self.`/`math.` qualification. The state class is `_Minx` (private); the compat `Minx` is now a factory function, not a class — every existing call site uses it as `Minx(...)`/`Minx()` so this is transparent. The class is private specifically so the module-level `Minx` factory name doesn't shadow it inside `Puzzle.minx`/`_Minx.copy` (which resolve global names at call time).
 
 - [ ] **Step 3b: Break the cycle in `minx/pieces.py`**
 
