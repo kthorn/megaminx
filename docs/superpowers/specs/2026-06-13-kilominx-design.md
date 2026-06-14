@@ -75,42 +75,42 @@ A ~10-line config per puzzle. Fields:
 |---|---|---|---|
 | `name` | `"megaminx"` | `"kilominx"` | labels, output paths |
 | `has_edges` | `True` | `False` | `geometry.build`, `pieces` |
-| `has_centers` | `True` | `False` | `geometry.build` (center sticker), `render` (hub vs. center tile) |
-| `subdivision` | edge-parallel cut (`fraction=0.42`) | 5 kites meeting at face center (no param) | `geometry.build` |
-| `layer_size` | `26` | `15` | `_layer_indices` (replaces the hardcoded `26`) |
+| `center_shape` | `'pentagon'` | `'circle'` | `geometry.build` / `render` (cosmetic) |
+| `subdivision` | edge-parallel cut (`fraction=0.42`) | 5 kites around a circular center | `geometry.build` |
+| `layer_size` | `26` | `16` | `_layer_indices` (replaces the hardcoded `26`) |
 | `color_ring` | `['red','blue','yellow','purple','green']` | same | `render.color_map` |
+
+(Both puzzles keep the 12 colored centers; the only structural difference is
+`has_edges`.)
 
 `MEGAMINX = Puzzle(MEGAMINX_SPEC)` and `KILOMINX = Puzzle(KILOMINX_SPEC)`.
 
 ## Kilominx geometry (the one genuinely new piece)
 
-A kilominx is corners-only — the exact dodecahedral analog of the 2×2: a 2×2
-face is 4 squares meeting at the center with no center sticker; a kilominx face
-is **5 four-sided (kite) tiles meeting at the face center**, with a small
-circular **hub** that is a cosmetic cap, **not a colored sticker**.
+A kilominx is the **edges-removed** megaminx: it keeps 12 colored face centers
+as fixed references (like a 3×3) but has **no edge pieces**. Each face shows
+**5 four-sided (kite) corner tiles** around a **small colored circular center**.
+The only structural difference from the megaminx is the absence of edges; the
+center being drawn as a circle rather than a pentagon is purely cosmetic — it
+is still a colored sticker that stays fixed under that face's turns.
 
-- **60 stickers:** 12 faces × 5 corner tiles. Total pieces: **20 corners** (3
-  tiles each). **No center stickers and no edges** — they are absent from the
-  state entirely (megaminx has both; kilominx has neither).
-- **Tile geometry is fully determined (no tunable).** Each corner kite is
-  `[vertex Vᵢ, edge-midpoint Mᵢ, face-center C, edge-midpoint Mᵢ₋₁]`. The 5
-  kites meet at the face center C, separated by lines from C to each edge
-  midpoint — the same pattern as the 2×2's center-crossing cuts. `build()`
-  shares the dodecahedron construction, the `Sticker` class, and centroid
-  computation, and branches **only** on this per-face subdivision step
-  (selected by `spec.subdivision`).
-- **The hub is render-only.** A small circle drawn at each visible face's
-  projected center in the body color; it carries no state and no color.
-- **Layer membership:** face F's layer = its **5** own corner tiles + 2 corner
-  tiles on each of the 5 neighbors = **15** (`5 own + 10 strip`).
-  `_layer_indices` uses `spec.layer_size`; the own/strip sanity assert becomes
-  `5`/`10` (corners only).
-- **Move engine unchanged:** the nearest-centroid permutation works as-is — a
-  face turn simply cycles the 15 corner tiles in its layer (there is no center
-  sticker to map onto itself).
-- **No fixed center reference** (like a 2×2): physically the solver has no
-  center hint, so the booklet anchors orientation on a chosen corner. The
-  simulator is unaffected — faces have fixed geometric indices.
+- **72 stickers:** 60 corner tiles (12 faces × 5) + 12 centers. Pieces: **20
+  corners** (3 tiles each) + 12 single-sticker centers. **No edges.**
+- **Tile geometry.** Each corner kite is `[vertex Vᵢ, edge-midpoint Mᵢ,
+  face-center C, edge-midpoint Mᵢ₋₁]`; the 5 kites surround the center, which is
+  rendered as a small colored circle at C. `build()` shares the dodecahedron
+  construction, the `Sticker` class, and centroid computation, and branches
+  **only** on this per-face subdivision step (selected by `spec.subdivision`).
+- **Layer membership:** face F's layer = its **6** own stickers (5 corner tiles
+  + center) + 2 corner tiles on each of the 5 neighbors = **16**
+  (`6 own + 10 strip`). `_layer_indices` uses `spec.layer_size`; the own/strip
+  sanity assert becomes `6`/`10`.
+- **Move engine unchanged:** a face turn maps the center onto itself and cycles
+  the 5 own + 10 strip corner tiles — exactly the megaminx structure minus the
+  edges.
+- **Fixed centers:** because the centers are colored, the kilominx has a fixed
+  color frame just like the megaminx/3×3 (it is *not* like a 2×2). The booklet
+  references faces by their center color, exactly as the megaminx guide does.
 
 ## Solver core: `BaseSolver` + `Solution` contract
 
@@ -160,9 +160,9 @@ works on those scrambles.
 
 - **Renderer:** `render.py` is already puzzle-agnostic (it iterates whatever
   stickers exist and never distinguishes edge from corner). It only needs to
-  take a `Puzzle` instance, plus one small spec-driven addition: when
-  `not spec.has_centers`, draw a cosmetic hub circle at each visible face's
-  projected center. Otherwise kilominx diagrams come for free.
+  take a `Puzzle` instance, plus one small spec-driven addition: draw the
+  center sticker as a circle when `spec.center_shape == 'circle'` (else as its
+  polygon). Otherwise kilominx diagrams come for free.
 - **Booklet:** `guide_kilo.py` produces a parallel kid-friendly PDF — cover →
   hold/notation → one page per stage (white corners, upper ring, lower ring,
   last-layer orient, last-layer permute) — every diagram rendered from a
@@ -170,10 +170,10 @@ works on those scrambles.
 
 ## Testing & sequencing
 
-- **`tests/test_kilo.py`** invariants: 60 stickers; 20 corners; no center or
-  edge stickers; each face's 5× turn = identity; layer counts 5 own / 10 strip;
-  sexy-move order; and a fuzz run of `KiloSolver.solve()` over N seeds (proof
-  of the method).
+- **`tests/test_kilo.py`** invariants: 72 stickers; 20 corners + 12 centers;
+  no edge stickers; each face's 5× turn = identity; layer counts 6 own / 10
+  strip; sexy-move order; and a fuzz run of `KiloSolver.solve()` over N seeds
+  (proof of the method).
 - **`tests/test_puzzle.py`** (megaminx) must stay green throughout — the
   regression proof for the instance-based refactor.
 
@@ -182,7 +182,9 @@ works on those scrambles.
 - **A — Instance-based refactor.** Promote module globals to `Puzzle(spec)`;
   add the `PuzzleSpec`; add turn recording + `BaseSolver`/`Solution`; refactor
   `method_mega.py` onto it. Gate: all megaminx tests green; the megaminx
-  booklet rebuilds byte-comparable (or intentionally diff-reviewed).
+  booklet is rebuilt and **diff-reviewed** — the refactor may change output
+  incidentally, so we review the rendered diff and accept it deliberately
+  rather than requiring byte-identical output.
 - **B — Kilominx geometry.** Kilominx spec + the kite face-subdivision;
   `test_kilo.py` simulator invariants pass.
 - **C — Kilominx solver.** `method_kilo.py` on `BaseSolver`, proven over
