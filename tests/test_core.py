@@ -3,6 +3,7 @@ from minx import spec
 from minx import geometry
 from minx import spec as _spec
 from minx import pieces
+from minx import puzzle as P
 
 
 def test_specs():
@@ -49,11 +50,34 @@ def test_build_pieces():
     assert len(edges) == 30 and all(len(v) == 2 for v in edges.values())
 
 
+def test_puzzle_instance_and_history():
+    pz = P.MEGAMINX
+    assert pz.n_stickers == 132
+    assert len(pz.layers) == 12 and len(pz.cw_perms) == 12
+    assert len(pz.corners) == 20 and len(pz.edges) == 30
+    # backward-compat module globals point at the megaminx instance
+    assert P.N_STICKERS == 132
+    assert P.STICKERS is pz.stickers
+    assert P.NORMALS is pz.normals
+    # _Minx records turns it actually performs
+    m = pz.minx()
+    m.turn(0, 2)
+    m.turn(3, -1)
+    assert m.history == [(0, 2), (3, 4)]   # -1 normalizes to 4 fifth-turns
+    # full 5-turn returns to solved and records nothing (times % 5 == 0)
+    m2 = pz.minx()
+    m2.turn(1, 5)
+    assert m2.is_solved() and m2.history == []
+    # compat factory
+    assert P.Minx().is_solved()
+
+
 def main():
     test_specs()
     test_build_megaminx()
     test_build_kilominx_not_yet()
     test_build_pieces()
+    test_puzzle_instance_and_history()
     print("test_core: OK")
 
 

@@ -1,5 +1,4 @@
 """Piece-level view: group corner/edge stickers into physical pieces."""
-from . import puzzle as P
 
 
 def _key(pt):
@@ -25,14 +24,6 @@ def build_pieces(stickers, faces, has_edges=True):
     else:
         assert len(edges) == 0
     return corners, edges
-
-
-# Backward-compatible megaminx groupings so existing consumers
-# (tests/test_puzzle.py, method.py) keep working. A later task deletes this
-# block and has puzzle.py assign these names from the megaminx Puzzle instance,
-# which breaks the puzzle<->pieces import cycle.
-CORNERS, EDGES = build_pieces(P.STICKERS, P.FACES, has_edges=True)
-ALL_PIECES = list(CORNERS.values()) + list(EDGES.values())
 
 
 def piece_at(minx, sticker_ids):

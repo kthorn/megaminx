@@ -1,165 +1,167 @@
-"""Megaminx state + move engine derived from geometry.
+"""Megaminx/kilominx state + move engine, built from a PuzzleSpec.
 
 A move is a 72-degree rotation about a face normal applied to every sticker
-whose centroid lies in that face's layer; the permutation is found by
-nearest-centroid matching, so it is correct by construction.
-"""
+in that face's layer; the permutation is found by nearest-centroid matching,
+so it is correct by construction. All derived data lives on a Puzzle
+instance; module-level names at the bottom alias the megaminx instance for
+backward compatibility."""
 import math
 from . import geometry
+from . import pieces
 from . import spec as _spec
 
-NORMALS, FACES, STICKERS = geometry.build(_spec.MEGAMINX_SPEC)
-N_STICKERS = len(STICKERS)
-ID_TO_IDX = {s.id: i for i, s in enumerate(STICKERS)}
 
-# ---------------------------------------------------------------------------
-# Layer membership: for face f, the layer is the face's own 11 stickers plus
-# the 15 strip stickers on the 5 neighbouring faces (2 corners + 1 edge each).
-# We find them by the gap in dot(centroid, normal).
-# ---------------------------------------------------------------------------
-
-
-def _layer_indices(fi):
-    n = NORMALS[fi]
-    scored = sorted(range(N_STICKERS),
-                    key=lambda i: -geometry._dot(STICKERS[i].centroid, n))
-    chosen = scored[:26]
-    # sanity: gap between 26th and 27th must be substantial
-    d26 = geometry._dot(STICKERS[chosen[-1]].centroid, n)
-    d27 = geometry._dot(STICKERS[scored[26]].centroid, n)
-    assert d26 - d27 > 0.05, (fi, d26, d27)
-    return chosen
-
-
-LAYERS = [_layer_indices(fi) for fi in range(12)]
-
-# Permutation tables: PERM[fi][i] = j means a CW (viewed from outside) 72-degree
-# turn of face fi sends the colour at sticker i to sticker j.
-
-
-def _perm_for(fi, angle):
-    n = NORMALS[fi]
-    perm = list(range(N_STICKERS))
-    for i in LAYERS[fi]:
-        p = geometry.rotate(STICKERS[i].centroid, n, angle)
-        best, bestd = None, 1e9
-        for j in LAYERS[fi]:
-            q = STICKERS[j].centroid
-            d = sum((p[k] - q[k]) ** 2 for k in range(3))
-            if d < bestd:
-                best, bestd = j, d
-        assert bestd < 1e-6, (fi, i, bestd)
-        perm[i] = best
-    assert sorted(perm) == list(range(N_STICKERS))
-    return perm
-
-
-# Viewed from outside along -normal, a clockwise physical turn corresponds to
-# rotation by -72 degrees about the outward normal (right-hand rule).
-CW_PERMS = [_perm_for(fi, -2 * math.pi / 5) for fi in range(12)]
-
-
-class Minx:
-    def __init__(self, colors=None):
-        # colour of each sticker = its face index when solved
-        self.state = list(colors) if colors else [s.face for s in STICKERS]
+class _Minx:
+    # Private class. The public surface is `puzzle.minx()` and the
+    # backward-compat module-level `Minx(...)` factory defined at the bottom.
+    # The class is NOT named `Minx` because the compat factory takes that name
+    # at module scope and would otherwise shadow this class inside the methods
+    # below (which look up names against module globals at call time).
+    def __init__(self, puzzle, colors=None):
+        self.puzzle = puzzle
+        self.state = list(colors) if colors is not None else \
+            [s.face for s in puzzle.stickers]
+        self.history = []   # list of (fi, times) actually-applied turns
 
     def copy(self):
-        return Minx(self.state)
+        # Exploratory copies start with a fresh history; only the solver's
+        # working cube accumulates the move record.
+        return _Minx(self.puzzle, self.state)
 
     def turn(self, fi, times=1):
         """times>0 = clockwise fifth-turns viewed facing that face."""
         times %= 5
+        if times:
+            self.history.append((fi, times))
+        perm = self.puzzle.cw_perms[fi]
+        n = self.puzzle.n_stickers
         for _ in range(times):
             new = list(self.state)
-            perm = CW_PERMS[fi]
-            for i in range(N_STICKERS):
+            for i in range(n):
                 new[perm[i]] = self.state[i]
             self.state = new
         return self
 
     def is_solved(self):
-        return all(self.state[i] == STICKERS[i].face for i in range(N_STICKERS))
+        st = self.puzzle.stickers
+        return all(self.state[i] == st[i].face for i in range(len(st)))
 
     def sticker(self, face, kind, index):
-        return self.state[ID_TO_IDX[(face, kind, index)]]
+        return self.state[self.puzzle.id_to_idx[(face, kind, index)]]
 
     def changed_vs(self, other):
-        return [i for i in range(N_STICKERS) if self.state[i] != other.state[i]]
+        return [i for i in range(self.puzzle.n_stickers)
+                if self.state[i] != other.state[i]]
 
 
-# ---------------------------------------------------------------------------
-# Human face naming for a given holding orientation.
-# We pick a canonical hold: U = face whose normal is closest to +z,
-# F = the U-adjacent face whose outward normal is closest to -y (facing viewer).
-# The renderer and the algorithm runner share this naming.
-# ---------------------------------------------------------------------------
+class Puzzle:
+    def __init__(self, spec):
+        self.spec = spec
+        self.normals, self.faces, self.stickers = geometry.build(spec)
+        self.n_stickers = len(self.stickers)
+        self.id_to_idx = {s.id: i for i, s in enumerate(self.stickers)}
+        self.layers = [self._layer_indices(fi) for fi in range(12)]
+        self.cw_perms = [self._perm_for(fi, -2 * math.pi / 5)
+                         for fi in range(12)]
+        self.adj = [self._adjacent(fi) for fi in range(12)]
+        self.opp = self._opposites()
+        self.corners, self.edges = pieces.build_pieces(
+            self.stickers, self.faces, has_edges=spec.has_edges)
+        self.all_pieces = list(self.corners.values()) + \
+            list(self.edges.values())
+        self.corner_slots = {self._piece_key(ids): tuple(ids)
+                             for ids in self.corners.values()}
+        self.edge_slots = {self._piece_key(ids): tuple(ids)
+                           for ids in self.edges.values()}
 
+    def minx(self, colors=None):
+        return _Minx(self, colors)
 
-def _adjacent(fi):
-    out = []
-    for fj in range(12):
-        if fj == fi:
-            continue
-        shared = sum(1 for v in FACES[fi]['vertices'] if any(
-            sum((v[k] - w[k]) ** 2 for k in range(3)) < 1e-9
-            for w in FACES[fj]['vertices']))
-        if shared == 2:
-            out.append(fj)
-    return out
+    def _piece_key(self, ids):
+        return tuple(sorted(self.stickers[i].face for i in ids))
 
+    def _layer_indices(self, fi):
+        n = self.normals[fi]
+        scored = sorted(range(self.n_stickers),
+                        key=lambda i: -geometry._dot(self.stickers[i].centroid, n))
+        k = self.spec.layer_size
+        chosen = scored[:k]
+        dk = geometry._dot(self.stickers[chosen[-1]].centroid, n)
+        dk1 = geometry._dot(self.stickers[scored[k]].centroid, n)
+        assert dk - dk1 > 0.05, (fi, dk, dk1)
+        return chosen
 
-ADJ = [_adjacent(fi) for fi in range(12)]
-OPP = []
-for fi in range(12):
-    others = [fj for fj in range(12) if geometry._dot(
-        NORMALS[fi], NORMALS[fj]) < -0.99]
-    OPP.append(others[0])
+    def _perm_for(self, fi, angle):
+        n = self.normals[fi]
+        perm = list(range(self.n_stickers))
+        for i in self.layers[fi]:
+            p = geometry.rotate(self.stickers[i].centroid, n, angle)
+            best, bestd = None, 1e9
+            for j in self.layers[fi]:
+                q = self.stickers[j].centroid
+                d = sum((p[k] - q[k]) ** 2 for k in range(3))
+                if d < bestd:
+                    best, bestd = j, d
+            assert bestd < 1e-6, (fi, i, bestd)
+            perm[i] = best
+        assert sorted(perm) == list(range(self.n_stickers))
+        return perm
 
+    def _adjacent(self, fi):
+        out = []
+        for fj in range(12):
+            if fj == fi:
+                continue
+            shared = sum(1 for v in self.faces[fi]['vertices'] if any(
+                sum((v[k] - w[k]) ** 2 for k in range(3)) < 1e-9
+                for w in self.faces[fj]['vertices']))
+            if shared == 2:
+                out.append(fj)
+        return out
 
-def name_faces(u, f):
-    """Given face indices for U (top) and F (front, adjacent to U), return a
-    dict of names.  Around U clockwise (viewed from above/outside U): F, R,
-    BR, BL, L.  D2 ('down-right') is the face adjacent to both F-neighbour R
-    and F below them; DR names follow standard megaminx conventions loosely
-    but the guide only uses U F R L D names plus pictures."""
-    assert f in ADJ[u]
-    nu = NORMALS[u]
-    ring = [fj for fj in ADJ[u]]
-    cf = FACES[f]['centroid']
-    # order ring clockwise viewed from outside U, starting at F
-    import math as _m
-    base = geometry._vsub(cf, geometry._vmul(nu, geometry._dot(cf, nu)))
-    bu = geometry._norm(base)
-    bw = geometry._cross(nu, bu)
+    def _opposites(self):
+        opp = []
+        for fi in range(12):
+            others = [fj for fj in range(12) if geometry._dot(
+                self.normals[fi], self.normals[fj]) < -0.99]
+            opp.append(others[0])
+        return opp
 
-    def ang(fj):
-        c = FACES[fj]['centroid']
-        proj = geometry._vsub(c, geometry._vmul(nu, geometry._dot(c, nu)))
-        a = _m.atan2(geometry._dot(proj, bw), geometry._dot(proj, bu))
-        return -a % (2 * _m.pi)
+    def name_faces(self, u, f):
+        """Given face indices for U (top) and F (front, adjacent to U), return
+        a dict of names U F R BR BL L D DR DL."""
+        assert f in self.adj[u]
+        nu = self.normals[u]
+        ring = [fj for fj in self.adj[u]]
+        cf = self.faces[f]['centroid']
+        base = geometry._vsub(cf, geometry._vmul(nu, geometry._dot(cf, nu)))
+        bu = geometry._norm(base)
+        bw = geometry._cross(nu, bu)
 
-    ring.sort(key=ang)
-    ring = ring[ring.index(f):] + ring[:ring.index(f)]  # F first (ang(F) may
-    # float-round to 2*pi instead of 0, which would sort it last)
-    # Orient the ring so ring[1] is on the viewer's right.  Viewer: up = nu,
-    # forward = -normal(F); right = forward x up.
-    nf = NORMALS[f]
-    right = geometry._cross(geometry._vmul(nf, -1), nu)
-    if geometry._dot(FACES[ring[1]]['centroid'], right) < \
-       geometry._dot(FACES[ring[4]]['centroid'], right):
-        ring = [ring[0]] + ring[1:][::-1]
-    names = {'U': u, 'F': ring[0], 'R': ring[1], 'BR': ring[2],
-             'BL': ring[3], 'L': ring[4], 'D': OPP[u]}
-    # D-right: the lower-band face adjacent to both F and R (below the UFR area)
-    both = [fj for fj in ADJ[names['F']] if fj in ADJ[names['R']] and fj != u]
-    assert len(both) == 1
-    names['DR'] = both[0]
-    # D-left: lower-band face adjacent to both F and L
-    both = [fj for fj in ADJ[names['F']] if fj in ADJ[names['L']] and fj != u]
-    assert len(both) == 1
-    names['DL'] = both[0]
-    return names
+        def ang(fj):
+            c = self.faces[fj]['centroid']
+            proj = geometry._vsub(c, geometry._vmul(nu, geometry._dot(c, nu)))
+            a = math.atan2(geometry._dot(proj, bw), geometry._dot(proj, bu))
+            return -a % (2 * math.pi)
+
+        ring.sort(key=ang)
+        ring = ring[ring.index(f):] + ring[:ring.index(f)]
+        nf = self.normals[f]
+        right = geometry._cross(geometry._vmul(nf, -1), nu)
+        if geometry._dot(self.faces[ring[1]]['centroid'], right) < \
+           geometry._dot(self.faces[ring[4]]['centroid'], right):
+            ring = [ring[0]] + ring[1:][::-1]
+        names = {'U': u, 'F': ring[0], 'R': ring[1], 'BR': ring[2],
+                 'BL': ring[3], 'L': ring[4], 'D': self.opp[u]}
+        both = [fj for fj in self.adj[names['F']]
+                if fj in self.adj[names['R']] and fj != u]
+        assert len(both) == 1
+        names['DR'] = both[0]
+        both = [fj for fj in self.adj[names['F']]
+                if fj in self.adj[names['L']] and fj != u]
+        assert len(both) == 1
+        names['DL'] = both[0]
+        return names
 
 
 def parse_alg(alg):
@@ -179,3 +181,39 @@ def apply_alg(minx, alg, names):
     for name, times in parse_alg(alg):
         minx.turn(names[name], times)
     return minx
+
+
+# ---------------------------------------------------------------------------
+# The shipped megaminx instance, plus backward-compatible module-level aliases
+# so existing megaminx-only consumers keep working unchanged.
+# ---------------------------------------------------------------------------
+MEGAMINX = Puzzle(_spec.MEGAMINX_SPEC)
+
+NORMALS = MEGAMINX.normals
+FACES = MEGAMINX.faces
+STICKERS = MEGAMINX.stickers
+N_STICKERS = MEGAMINX.n_stickers
+ID_TO_IDX = MEGAMINX.id_to_idx
+LAYERS = MEGAMINX.layers
+CW_PERMS = MEGAMINX.cw_perms
+ADJ = MEGAMINX.adj
+OPP = MEGAMINX.opp
+name_faces = MEGAMINX.name_faces
+
+
+def Minx(colors=None):          # noqa: N802 - compat factory, was a class
+    """Backward-compatible factory: a megaminx Minx (an `_Minx` bound to the
+    megaminx instance). New code should prefer `puzzle.minx()` on an explicit
+    Puzzle instance. This name intentionally shadows nothing problematic: the
+    class is `_Minx`, so `Puzzle.minx`/`_Minx.copy` resolve correctly."""
+    return MEGAMINX.minx(colors)
+
+
+# Backward-compat piece groupings ON the pieces module: previously computed in
+# pieces.py, now sourced from the megaminx instance so pieces.py needn't import
+# puzzle (which would form a puzzle<->pieces import cycle). Consumers that read
+# pieces.CORNERS/EDGES/ALL_PIECES (tests/test_puzzle.py, method.py) import
+# puzzle first, so these are populated by the time they're read.
+pieces.CORNERS = MEGAMINX.corners
+pieces.EDGES = MEGAMINX.edges
+pieces.ALL_PIECES = MEGAMINX.all_pieces
