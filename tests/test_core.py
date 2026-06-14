@@ -5,6 +5,7 @@ from minx import spec as _spec
 from minx import pieces
 from minx import puzzle as P
 from minx import render as R
+from minx import solver
 from tests.test_puzzle import canonical_hold
 
 
@@ -82,6 +83,33 @@ def test_render_smoke():
     assert 'path' in svg
 
 
+def test_copy_preserves_history():
+    pz = P.MEGAMINX
+    m = pz.minx()
+    m.turn(0, 1)
+    backup = m.copy()
+    assert backup.history == [(0, 1)]        # copy carries the history snapshot
+    m.turn(2, 1)                             # diverge the working cube
+    assert backup.history == [(0, 1)]        # snapshot unaffected (independent list)
+    m = backup                               # "restore" to the backup
+    assert m.history == [(0, 1)] and m.state == backup.state
+
+
+def test_base_solver_records_steps():
+    pz = P.MEGAMINX
+    s = solver.BaseSolver(pz.minx(), white=0)
+    assert s.gray == pz.opp[0]
+    # begin/end a step and confirm the raw turns are captured
+    s.begin_step("demo", hold_text="white up")
+    s.m.turn(0, 1)
+    s.m.turn(3, 2)
+    step = s.end_step()
+    assert step.stage == "demo"
+    assert step.hold_text == "white up"
+    assert step.moves == [(0, 1), (3, 2)]
+    assert s.solution[-1] is step
+
+
 def main():
     test_specs()
     test_build_megaminx()
@@ -89,6 +117,8 @@ def main():
     test_build_pieces()
     test_puzzle_instance_and_history()
     test_render_smoke()
+    test_copy_preserves_history()
+    test_base_solver_records_steps()
     print("test_core: OK")
 
 

@@ -24,9 +24,9 @@ class _Minx:
         self.history = []   # list of (fi, times) actually-applied turns
 
     def copy(self):
-        # Exploratory copies start with a fresh history; only the solver's
-        # working cube accumulates the move record.
-        return _Minx(self.puzzle, self.state)
+        c = _Minx(self.puzzle, self.state)
+        c.history = list(self.history)   # snapshot, so backup/restore via
+        return c                         # `self.m = backup` preserves the record
 
     def turn(self, fi, times=1):
         """times>0 = clockwise fifth-turns viewed facing that face."""
