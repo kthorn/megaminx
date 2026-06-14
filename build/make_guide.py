@@ -8,7 +8,7 @@ import sys, pathlib, math
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from minx import puzzle as P, method as M, render as R
+from minx import puzzle as P, method_mega as M, render as R
 from tests.test_puzzle import canonical_hold
 
 OUT = ROOT / 'out'
