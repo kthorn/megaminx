@@ -767,10 +767,15 @@ git commit -m "refactor: render.py threads an optional puzzle (defaults to MEGAM
 
 ## Task 6: solver.py — Solution records + BaseSolver
 
-Extract the puzzle-agnostic solver scaffolding from `method.py` into `minx/solver.py`: the `Step`/`Solution` records and a `BaseSolver` that owns bands bookkeeping, `assert_solved_intact`, `mark`, `free_faces`, `bfs_to`, `ferry`, `try_insert`, `find_corner`, `find_edge`, and per-step move recording. The megaminx-specific stages stay in `method_mega.py` (Task 7).
+Extract the puzzle-agnostic solver scaffolding from `method.py` into `minx/solver.py`: the `Step`/`Solution` records and a `BaseSolver` that owns bands bookkeeping, `assert_solved_intact`, `mark`, `free_faces`, `bfs_to`, `ferry`, `try_insert`, `find_corner`, `find_edge`, and per-step move recording.
+
+**Also fix `_Minx.copy()` to PRESERVE history** (a prerequisite for correct step recording — see below). The megaminx-specific stages stay in `method_mega.py` (Task 7).
+
+> **Why copy() must preserve history:** the megaminx stage methods use a `backup = self.m.copy()` … on failure `self.m = backup` undo pattern in 15+ places. Task 4's `copy()` started a *fresh* history, so restoring would wipe the history accumulated earlier in the stage, corrupting the `Solution` that Task 7 records (and breaking its replay test). With copy() preserving history, the `(state, history)` invariant — "applying `history` to a solved cube reproduces `state`" — is maintained across backup/restore: a restore rolls back state and history together. Throwaway evaluation copies carrying a (copied) history is harmless since they're discarded. (`try_insert` is defined here for the kilominx path but is **not** called by the megaminx solver.)
 
 **Files:**
 - Create: `minx/solver.py`
+- Modify: `minx/puzzle.py` (`_Minx.copy()` preserves history)
 - Test: `tests/test_core.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -779,6 +784,18 @@ Add to `tests/test_core.py` (and call in `main()`):
 
 ```python
 from minx import solver
+
+
+def test_copy_preserves_history():
+    pz = P.MEGAMINX
+    m = pz.minx()
+    m.turn(0, 1)
+    backup = m.copy()
+    assert backup.history == [(0, 1)]        # copy carries the history snapshot
+    m.turn(2, 1)                             # diverge the working cube
+    assert backup.history == [(0, 1)]        # snapshot unaffected (independent list)
+    m = backup                               # "restore" to the backup
+    assert m.history == [(0, 1)] and m.state == backup.state
 
 
 def test_base_solver_records_steps():
@@ -799,9 +816,22 @@ def test_base_solver_records_steps():
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `python3 -m tests.test_core`
-Expected: FAIL — `No module named 'minx.solver'`
+Expected: FAIL — first on `test_copy_preserves_history` (`copy()` currently resets history, so `backup.history == []`), then `No module named 'minx.solver'`.
 
-- [ ] **Step 3: Write `minx/solver.py`**
+- [ ] **Step 3: Fix `_Minx.copy()` in `minx/puzzle.py`**
+
+Replace the `copy` method:
+
+```python
+    def copy(self):
+        c = _Minx(self.puzzle, self.state)
+        c.history = list(self.history)   # snapshot, so backup/restore via
+        return c                         # `self.m = backup` preserves the record
+```
+
+(Remove the old "Exploratory copies start with a fresh history" comment.)
+
+- [ ] **Step 4: Write `minx/solver.py`**
 
 ```python
 """Puzzle-agnostic solver scaffolding shared by all puzzle methods.
@@ -1028,18 +1058,21 @@ class BaseSolver:
         raise MethodError(f"no safe grip for slot {slot_ids}")
 ```
 
-> This is the existing `Solver` machinery from `method.py` lines 69–244, re-parameterized on `self.puzzle` instead of module globals, with `find_corner`/`find_edge` promoted to methods reading `self.puzzle.corner_slots`/`edge_slots`, plus the new `Step`/`Solution`/`begin_step`/`end_step` recording. `try_insert`'s backup/restore of `self.m` does not rewind `self.m.history`; callers wrap whole insertions in begin/end_step so a discarded grip's turns are not recorded (Task 7 covers usage).
+> This is the existing `Solver` machinery from `method.py` lines 69–244, re-parameterized on `self.puzzle` instead of module globals, with `find_corner`/`find_edge` promoted to methods reading `self.puzzle.corner_slots`/`edge_slots`, plus the new `Step`/`Solution`/`begin_step`/`end_step` recording. With the history-preserving `copy()` fixed in Step 3, the `backup = self.m.copy()` … `self.m = backup` undo pattern (used by the megaminx stages, not by `try_insert`) keeps `self.m.state` and `self.m.history` consistent, so `end_step`'s `history[mark:]` is exactly the stage's committed move list.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 5: Run tests to verify they pass**
 
 Run: `python3 -m tests.test_core`
 Expected: `test_core: OK`
 
-- [ ] **Step 5: Commit**
+Run: `python3 -m tests.test_puzzle`
+Expected: `all simulator invariants: OK` (the copy() change must not disturb the engine).
+
+- [ ] **Step 6: Commit**
 
 ```bash
-git add minx/solver.py tests/test_core.py
-git commit -m "feat: BaseSolver + Solution/Step recording in minx/solver.py"
+git add minx/solver.py minx/puzzle.py tests/test_core.py
+git commit -m "feat: BaseSolver + Solution recording; copy() preserves history"
 ```
 
 ---
