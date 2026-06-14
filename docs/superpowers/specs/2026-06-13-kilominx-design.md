@@ -75,33 +75,42 @@ A ~10-line config per puzzle. Fields:
 |---|---|---|---|
 | `name` | `"megaminx"` | `"kilominx"` | labels, output paths |
 | `has_edges` | `True` | `False` | `geometry.build`, `pieces` |
-| `subdivision` | edge-parallel cut, `fraction=0.42` | kite/center-pentagon, `center_scale` (tuned so corners meet at edge midpoints) | `geometry.build` |
-| `layer_size` | `26` | `16` | `_layer_indices` (replaces the hardcoded `26`) |
+| `has_centers` | `True` | `False` | `geometry.build` (center sticker), `render` (hub vs. center tile) |
+| `subdivision` | edge-parallel cut (`fraction=0.42`) | 5 kites meeting at face center (no param) | `geometry.build` |
+| `layer_size` | `26` | `15` | `_layer_indices` (replaces the hardcoded `26`) |
 | `color_ring` | `['red','blue','yellow','purple','green']` | same | `render.color_map` |
 
 `MEGAMINX = Puzzle(MEGAMINX_SPEC)` and `KILOMINX = Puzzle(KILOMINX_SPEC)`.
 
 ## Kilominx geometry (the one genuinely new piece)
 
-- **72 stickers:** each face = 1 central pentagon + 5 corner "kites" (no edge
-  stickers). Total pieces: 20 corners (3 stickers each) + 12 single-sticker
-  centers.
-- **Face subdivision differs from the megaminx's edge-parallel cuts.** On a
-  kilominx the corners meet at the **edge midpoints**; each corner kite is
-  bounded by two half-edges and two segments running inward to a scaled
-  central pentagon whose vertices point toward the edge midpoints; its single
-  parameter is `center_scale` (how far those vertices sit from the face center,
-  tuned so adjacent corners meet exactly at the edge midpoints). `build()`
+A kilominx is corners-only — the exact dodecahedral analog of the 2×2: a 2×2
+face is 4 squares meeting at the center with no center sticker; a kilominx face
+is **5 four-sided (kite) tiles meeting at the face center**, with a small
+circular **hub** that is a cosmetic cap, **not a colored sticker**.
+
+- **60 stickers:** 12 faces × 5 corner tiles. Total pieces: **20 corners** (3
+  tiles each). **No center stickers and no edges** — they are absent from the
+  state entirely (megaminx has both; kilominx has neither).
+- **Tile geometry is fully determined (no tunable).** Each corner kite is
+  `[vertex Vᵢ, edge-midpoint Mᵢ, face-center C, edge-midpoint Mᵢ₋₁]`. The 5
+  kites meet at the face center C, separated by lines from C to each edge
+  midpoint — the same pattern as the 2×2's center-crossing cuts. `build()`
   shares the dodecahedron construction, the `Sticker` class, and centroid
   computation, and branches **only** on this per-face subdivision step
-  (selected by `spec.subdivision` / `spec.has_edges`).
-- **Layer membership:** face F's layer = its 6 own stickers (center + 5
-  corners) + 2 corner stickers on each of the 5 neighbors = **16**
-  (`6 own + 10 strip`). `_layer_indices` uses `spec.layer_size`; the
-  own/strip sanity assert becomes `6`/`10` (corners only).
-- **Move engine unchanged:** the nearest-centroid permutation works as-is. A
-  face turn rotates the center onto itself (5-fold symmetric) and cycles the
-  corners.
+  (selected by `spec.subdivision`).
+- **The hub is render-only.** A small circle drawn at each visible face's
+  projected center in the body color; it carries no state and no color.
+- **Layer membership:** face F's layer = its **5** own corner tiles + 2 corner
+  tiles on each of the 5 neighbors = **15** (`5 own + 10 strip`).
+  `_layer_indices` uses `spec.layer_size`; the own/strip sanity assert becomes
+  `5`/`10` (corners only).
+- **Move engine unchanged:** the nearest-centroid permutation works as-is — a
+  face turn simply cycles the 15 corner tiles in its layer (there is no center
+  sticker to map onto itself).
+- **No fixed center reference** (like a 2×2): physically the solver has no
+  center hint, so the booklet anchors orientation on a chosen corner. The
+  simulator is unaffected — faces have fixed geometric indices.
 
 ## Solver core: `BaseSolver` + `Solution` contract
 
@@ -151,7 +160,9 @@ works on those scrambles.
 
 - **Renderer:** `render.py` is already puzzle-agnostic (it iterates whatever
   stickers exist and never distinguishes edge from corner). It only needs to
-  take a `Puzzle` instance. Kilominx diagrams come for free.
+  take a `Puzzle` instance, plus one small spec-driven addition: when
+  `not spec.has_centers`, draw a cosmetic hub circle at each visible face's
+  projected center. Otherwise kilominx diagrams come for free.
 - **Booklet:** `guide_kilo.py` produces a parallel kid-friendly PDF — cover →
   hold/notation → one page per stage (white corners, upper ring, lower ring,
   last-layer orient, last-layer permute) — every diagram rendered from a
@@ -159,9 +170,10 @@ works on those scrambles.
 
 ## Testing & sequencing
 
-- **`tests/test_kilo.py`** invariants: 72 stickers; 20 corners; each face's
-  5× turn = identity; layer counts 6 own / 10 strip; sexy-move order; and a
-  fuzz run of `KiloSolver.solve()` over N seeds (proof of the method).
+- **`tests/test_kilo.py`** invariants: 60 stickers; 20 corners; no center or
+  edge stickers; each face's 5× turn = identity; layer counts 5 own / 10 strip;
+  sexy-move order; and a fuzz run of `KiloSolver.solve()` over N seeds (proof
+  of the method).
 - **`tests/test_puzzle.py`** (megaminx) must stay green throughout — the
   regression proof for the instance-based refactor.
 
