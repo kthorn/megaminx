@@ -4,6 +4,8 @@ from minx import geometry
 from minx import spec as _spec
 from minx import pieces
 from minx import puzzle as P
+from minx import render as R
+from tests.test_puzzle import canonical_hold
 
 
 def test_specs():
@@ -72,12 +74,21 @@ def test_puzzle_instance_and_history():
     assert P.Minx().is_solved()
 
 
+def test_render_smoke():
+    names = canonical_hold()
+    cmap = R.color_map(names['U'], names['F'])
+    svg = R.render(P.MEGAMINX.minx(), names['U'], names['F'], cmap, size=120)
+    assert svg.startswith('<svg') and svg.endswith('</svg>')
+    assert 'path' in svg
+
+
 def main():
     test_specs()
     test_build_megaminx()
     test_build_kilominx_not_yet()
     test_build_pieces()
     test_puzzle_instance_and_history()
+    test_render_smoke()
     print("test_core: OK")
 
 
