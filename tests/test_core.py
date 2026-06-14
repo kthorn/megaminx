@@ -6,6 +6,7 @@ from minx import pieces
 from minx import puzzle as P
 from minx import render as R
 from minx import solver
+from minx import method_mega
 from tests.test_puzzle import canonical_hold
 
 
@@ -110,6 +111,42 @@ def test_base_solver_records_steps():
     assert s.solution[-1] is step
 
 
+def test_solver_records_replayable_steps():
+    # The recorded Solution must replay to each step's snapshot, including across
+    # the backup/restore (`self.m = self.m.copy()`) pattern the megaminx stages
+    # use. We drive a real Solver through two steps manually rather than calling
+    # the full solve(), which is correct but BFS-slow on scrambled cubes (the
+    # full-solve replay was verified manually; it is too slow for the fast suite).
+    pz = P.MEGAMINX
+    names = pz.name_faces(0, pz.adj[0][0])
+    s = method_mega.Solver(pz.minx(), white=0)
+
+    # step 1: record a real committed sequence
+    s.begin_step("s1")
+    P.apply_alg(s.m, "R U Ri Ui R U Ri Ui", names)
+    s.end_step()
+
+    # step 2: apply a tentative sequence, restore to the backup (history rolls
+    # back via the history-preserving copy), then commit a different sequence
+    s.begin_step("s2")
+    backup = s.m.copy()
+    P.apply_alg(s.m, "L Ui Li U", names)     # tentative; will be discarded
+    s.m = backup                             # restore: tentative turns dropped
+    P.apply_alg(s.m, "BR U BRi Ui", names)   # committed
+    s.end_step()
+
+    assert len(s.solution) == 2
+    assert len(s.solution.steps[1].moves) == 4   # only the 4 committed turns
+    # replay every recorded step from a fresh solved cube; each must reproduce
+    # its snapshot, and the final replay equals the solver's working cube
+    replay = pz.minx()
+    for step in s.solution.steps:
+        for fi, t in step.moves:
+            replay.turn(fi, t)
+        assert replay.state == step.state_after
+    assert replay.state == s.m.state
+
+
 def main():
     test_specs()
     test_build_megaminx()
@@ -119,6 +156,7 @@ def main():
     test_render_smoke()
     test_copy_preserves_history()
     test_base_solver_records_steps()
+    test_solver_records_replayable_steps()
     print("test_core: OK")
 
 

@@ -18,6 +18,7 @@ method as specified works on that scramble.
 import random
 from . import puzzle as P
 from . import pieces
+from .solver import BaseSolver, MethodError, Step, Solution
 
 G = P.geometry
 
@@ -38,16 +39,13 @@ def edge_key(faces):
     return tuple(sorted(faces))
 
 
-CORNER_SLOTS = {corner_key(P.STICKERS[i].face for i in ids): tuple(ids)
-                for ids in pieces.CORNERS.values()}
-EDGE_SLOTS = {edge_key(P.STICKERS[i].face for i in ids): tuple(ids)
-              for ids in pieces.EDGES.values()}
+CORNER_SLOTS = P.MEGAMINX.corner_slots
+EDGE_SLOTS = P.MEGAMINX.edge_slots
 
 
 def find_corner(m, colors):
-    """Where the corner piece with these 3 colors currently sits."""
     want = sorted(colors)
-    for key, ids in CORNER_SLOTS.items():
+    for ids in CORNER_SLOTS.values():
         if sorted(m.state[i] for i in ids) == want:
             return ids
     raise AssertionError(colors)
@@ -55,193 +53,19 @@ def find_corner(m, colors):
 
 def find_edge(m, colors):
     want = sorted(colors)
-    for key, ids in EDGE_SLOTS.items():
+    for ids in EDGE_SLOTS.values():
         if sorted(m.state[i] for i in ids) == want:
             return ids
     raise AssertionError(colors)
 
 
 def solved_ids(m, tracked):
+    st = P.STICKERS
     return [ids for ids in tracked
-            if all(m.state[i] == P.STICKERS[i].face for i in ids)]
+            if all(m.state[i] == st[i].face for i in ids)]
 
 
-class MethodError(Exception):
-    pass
-
-
-class Solver:
-    def __init__(self, m, white):
-        self.m = m
-        self.white = white
-        self.gray = P.OPP[white]
-        # bands
-        self.band1 = P.ADJ[white]                      # faces around white
-        self.band2 = [f for f in range(12)
-                      if f not in self.band1 and f not in (white, self.gray)]
-        self.solved = []     # list of sticker-id tuples that must stay solved
-        self.log = []
-
-    # -- bookkeeping --------------------------------------------------------
-
-    def assert_solved_intact(self, context):
-        for ids in self.solved:
-            for i in ids:
-                if self.m.state[i] != P.STICKERS[i].face:
-                    raise MethodError(f"{context}: disturbed {ids}")
-
-    def mark(self, ids):
-        assert all(self.m.state[i] == P.STICKERS[i].face for i in ids), ids
-        self.solved.append(tuple(ids))
-
-    def free_faces(self):
-        """Faces whose layers contain no solved pieces."""
-        solved_stickers = set(i for ids in self.solved for i in ids)
-        out = []
-        for f in range(12):
-            if not solved_stickers.intersection(P.LAYERS[f]):
-                out.append(f)
-        return out
-
-    # -- generic helpers ----------------------------------------------------
-
-    def bfs_to(self, piece_colors, target_ids, ok=None, depth=4,
-               faces=None, orient=None, extra=None):
-        """BFS over free-face turns to bring piece to target slot.
-        orient: optional dict {face: color} the piece must satisfy at target.
-        Returns True if achieved (and applies the moves)."""
-        faces = faces if faces is not None else self.free_faces()
-        from collections import deque
-        start = tuple(self.m.state)
-
-        solved_flat = [(i, P.STICKERS[i].face)
-                       for ids in self.solved for i in ids]
-
-        def done(state):
-            mm = P.Minx(list(state))
-            ids = find_corner(mm, piece_colors) if len(piece_colors) == 3 \
-                else find_edge(mm, piece_colors)
-            if tuple(ids) != tuple(target_ids):
-                return False
-            if orient:
-                for i in ids:
-                    f = P.STICKERS[i].face
-                    if orient.get(f) is not None and mm.state[i] != orient[f]:
-                        return False
-            for i, c in solved_flat:
-                if state[i] != c:
-                    return False
-            if extra and not extra(state):
-                return False
-            return True
-
-        if done(start):
-            return True
-        seen = {start}
-        q = deque([(start, [])])
-        while q:
-            state, path = q.popleft()
-            if len(path) >= depth:
-                continue
-            for f in faces:
-                for t in (1, -1, 2, -2):
-                    mm = P.Minx(list(state)).turn(f, t)
-                    s2 = tuple(mm.state)
-                    if s2 in seen:
-                        continue
-                    seen.add(s2)
-                    p2 = path + [(f, t)]
-                    if done(s2):
-                        for ff, tt in p2:
-                            self.m.turn(ff, tt)
-                        return True
-                    q.append((s2, p2))
-        return False
-
-    def ferry(self, piece_colors, target_ids, orient=None, extra=None,
-              extra_faces=()):
-        """Bring a piece to target: direct BFS first; if that fails, lift it
-        into the gray layer, then walk it around and drop it in."""
-        find = find_corner if len(piece_colors) == 3 else find_edge
-
-        def local_faces():
-            cur = find(self.m, piece_colors)
-            return {P.STICKERS[i].face for i in cur}
-
-        base_faces = set(self.free_faces()) | set(extra_faces)
-        tgt_faces = {P.STICKERS[i].face for i in target_ids}
-        # leg 0: direct
-        if self.bfs_to(piece_colors, target_ids, depth=4,
-                       faces=sorted(base_faces | tgt_faces | local_faces()),
-                       orient=orient, extra=extra):
-            return True
-        # leg 1: into the gray layer
-        gray = self.gray
-        cur = find(self.m, piece_colors)
-        if gray not in {P.STICKERS[i].face for i in cur}:
-            in_gray = []
-            n = 3 if len(piece_colors) == 3 else 2
-
-            def to_gray(state):
-                mm = P.Minx(list(state))
-                ids = find(mm, piece_colors)
-                return gray in {P.STICKERS[i].face for i in ids}
-
-            # BFS targeting "any gray-layer position": reuse bfs_to by trying
-            # each gray slot as target is wasteful; do a custom mini-BFS
-            from collections import deque
-            solved_flat = [(i, P.STICKERS[i].face)
-                           for ids in self.solved for i in ids]
-            faces = sorted(base_faces | local_faces())
-            start = tuple(self.m.state)
-            seen = {start}
-            q = deque([(start, [])])
-            okpath = None
-            while q and okpath is None:
-                state, path = q.popleft()
-                if len(path) >= 3:
-                    continue
-                for f in faces:
-                    for t in (1, -1, 2, -2):
-                        mm = P.Minx(list(state)).turn(f, t)
-                        s2 = tuple(mm.state)
-                        if s2 in seen:
-                            continue
-                        seen.add(s2)
-                        p2 = path + [(f, t)]
-                        if to_gray(s2) and \
-                           all(s2[i] == c for i, c in solved_flat) and \
-                           (extra is None or extra(s2)):
-                            okpath = p2
-                            break
-                        q.append((s2, p2))
-                    if okpath:
-                        break
-            if okpath:
-                for f, t in okpath:
-                    self.m.turn(f, t)
-        # leg 2: from wherever it is now, direct again
-        return self.bfs_to(piece_colors, target_ids, depth=4,
-                           faces=sorted(base_faces | tgt_faces
-                                        | local_faces() | {gray}),
-                           orient=orient, extra=extra)
-
-    def try_insert(self, slot_ids, stage_fn, grips):
-        """Try each grip via stage_fn until one solves the slot without
-        disturbing solved pieces. stage_fn(grip) must attempt the insert on a
-        copy and return the move list or None."""
-        for grip in grips:
-            backup = self.m.copy()
-            try:
-                if stage_fn(grip):
-                    self.assert_solved_intact("insert")
-                    if all(self.m.state[i] == P.STICKERS[i].face
-                           for i in slot_ids):
-                        return grip
-            except MethodError:
-                pass
-            self.m = backup
-        raise MethodError(f"no safe grip for slot {slot_ids}")
+class Solver(BaseSolver):
 
     # -- stage 2: white star -------------------------------------------------
 
@@ -822,19 +646,22 @@ class Solver:
     # -- main -----------------------------------------------------------------
 
     def solve(self):
-        self.white_star()
-        self.white_corners()
-        self.row1_edges()
-        self.row2_band()
-        self.row3_corners()
-        self.ridge_edges()
-        self.ll_star()
-        self.assert_solved_intact("LL star")
-        self.ll_edges()
-        self.assert_solved_intact("LL edges")
-        self.ll_corners_position()
-        self.assert_solved_intact("LL corner pos")
-        self.ll_corners_orient()
+        for stage, fn in [
+            ("white-star", self.white_star),
+            ("white-corners", self.white_corners),
+            ("row1-edges", self.row1_edges),
+            ("row2-band", self.row2_band),
+            ("row3-corners", self.row3_corners),
+            ("ridge-edges", self.ridge_edges),
+            ("ll-star", self.ll_star),
+            ("ll-edges", self.ll_edges),
+            ("ll-corner-pos", self.ll_corners_position),
+            ("ll-corner-orient", self.ll_corners_orient),
+        ]:
+            self.begin_step(stage)
+            fn()
+            self.end_step()
+            self.assert_solved_intact(stage)
         if not self.m.is_solved():
             raise MethodError("end state not solved")
 

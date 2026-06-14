@@ -4,7 +4,7 @@ import sys
 from collections import Counter
 sys.path.insert(0, '/home/kurtt/megaminx')
 from minx import puzzle as P
-from minx import method as M
+from minx import method_mega as M
 
 loc = Counter()
 n_runs = 0
