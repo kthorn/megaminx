@@ -22,7 +22,7 @@ This plan implements **Phase A only**. Phases B–D (kilominx geometry, solver, 
 |---|---|---|
 | `minx/spec.py` | Create | `PuzzleSpec` dataclass + `MEGAMINX_SPEC`, `KILOMINX_SPEC` constants |
 | `minx/geometry.py` | Modify | `build(spec)` parameterized; megaminx (edge-parallel) subdivision implemented; kilominx subdivision deferred to Phase B |
-| `minx/pieces.py` | Modify | Pure `build_pieces(stickers, faces, has_edges)`; `piece_at`/`solved_piece`/`describe_effect` take explicit puzzle/stickers (no module globals) |
+| `minx/pieces.py` | Modify (Tasks 3 & 4) | Task 3 adds pure `build_pieces(stickers, faces, has_edges)` and keeps compat `CORNERS`/`EDGES`/`ALL_PIECES`; Task 4 deletes that compat block + the top-level `puzzle` import (puzzle.py supplies the names) to break the cycle |
 | `minx/puzzle.py` | Rewrite | `Puzzle` class (all derived data + `name_faces` + piece slots + `minx()` factory); `Minx` class with turn history; `MEGAMINX` instance + backward-compat module globals; `parse_alg`/`apply_alg` free functions |
 | `minx/render.py` | Modify | All functions take an optional `puzzle` defaulting to `MEGAMINX`; replace internal `P.<global>` with `puzzle.<attr>` |
 | `minx/solver.py` | Create | `Step`/`Solution` records + `BaseSolver` (puzzle-parameterized generics: bands, `assert_solved_intact`, `mark`, `free_faces`, `bfs_to`, `ferry`, `try_insert`, `find_corner`/`find_edge`, per-step recording) |
@@ -32,7 +32,7 @@ This plan implements **Phase A only**. Phases B–D (kilominx geometry, solver, 
 | `tests/test_puzzle.py` | Unchanged | Megaminx invariants — the regression proof. Must keep passing as-is. |
 | `tests/test_core.py` | Create | New-surface tests: `Puzzle` instance attrs, `Minx` history, `build_pieces`, `Solution` recording |
 
-**Import-cycle rule:** `pieces.build_pieces` must stay pure (params only; no `import puzzle` at module top) because `puzzle.py` imports `pieces`. `solver.py` imports `puzzle` (for the `Minx` factory type) but `method_mega.py` imports both; no cycle since `puzzle.py` does not import `solver`/`method_mega`.
+**Import-cycle rule:** After Task 4, `puzzle.py` imports `pieces` (to call `build_pieces`), so `pieces.py` must NOT import `puzzle` at module top — `build_pieces`/`piece_at`/`solved_piece` are pure, and `describe_effect` uses a *local* `from . import puzzle as P`. The backward-compat `pieces.CORNERS`/`EDGES`/`ALL_PIECES` are assigned *by* `puzzle.py` after it builds `MEGAMINX` (consumers import `puzzle` before reading them). `solver.py` imports `puzzle` but `puzzle.py` does not import `solver`/`method_mega`, so no cycle there.
 
 ---
 
@@ -269,9 +269,11 @@ git commit -m "refactor: geometry.build takes a PuzzleSpec, dispatch subdivision
 
 ---
 
-## Task 3: Pure build_pieces()
+## Task 3: Pure build_pieces() (keeping backward-compat groupings)
 
-Extract the piece grouping from `pieces.py`'s import-time `_build()` into a pure function taking stickers/faces, so the `Puzzle` instance can call it for either puzzle. Make `solved_piece`/`describe_effect` take explicit context instead of reaching for module globals.
+Extract the piece grouping from `pieces.py`'s import-time `_build()` into a pure function taking stickers/faces, so the `Puzzle` instance can call it for either puzzle. **Keep** the backward-compat module-level `CORNERS`/`EDGES`/`ALL_PIECES` (now computed by delegating to `build_pieces`) because `tests/test_puzzle.py:54` and `minx/method.py:42-44` still read them and `test_puzzle.py` must stay unchanged. Task 4 later relocates these onto the `Puzzle` instance and breaks the resulting import cycle. Make `solved_piece`/`describe_effect` take explicit context.
+
+> Why not go fully pure now: `pieces.py` currently does `from . import puzzle as P` and `puzzle.py` does **not** import `pieces`, so there is no cycle today. If we removed the module globals now, `test_puzzle.py` (unchanged) and `method.py` would break. We keep them until Task 4 introduces `puzzle.py → pieces` and can supply them from the instance.
 
 **Files:**
 - Modify: `minx/pieces.py`
@@ -299,10 +301,11 @@ Expected: FAIL — `module 'minx.pieces' has no attribute 'build_pieces'`
 
 - [ ] **Step 3: Rewrite `minx/pieces.py`**
 
-Replace the whole file with a pure-function version (no top-level `puzzle` import, no import-time globals):
+Replace the whole file. `build_pieces` is the new pure function; the module-level `CORNERS`/`EDGES`/`ALL_PIECES` are kept as backward-compat (computed from the still-present megaminx module globals on `puzzle`). The top-level `from . import puzzle as P` is retained for now — Task 4 removes it:
 
 ```python
 """Piece-level view: group corner/edge stickers into physical pieces."""
+from . import puzzle as P
 
 
 def _key(pt):
@@ -330,6 +333,14 @@ def build_pieces(stickers, faces, has_edges=True):
     return corners, edges
 
 
+# Backward-compatible megaminx groupings so existing consumers
+# (tests/test_puzzle.py, method.py) keep working. Task 4 deletes this block
+# and has puzzle.py assign these names from the megaminx Puzzle instance,
+# which breaks the puzzle<->pieces import cycle.
+CORNERS, EDGES = build_pieces(P.STICKERS, P.FACES, has_edges=True)
+ALL_PIECES = list(CORNERS.values()) + list(EDGES.values())
+
+
 def piece_at(minx, sticker_ids):
     """Colors currently sitting at this piece location."""
     return tuple(minx.state[i] for i in sticker_ids)
@@ -341,7 +352,8 @@ def solved_piece(stickers, sticker_ids):
 
 def describe_effect(puzzle, alg, names, minx=None):
     """Apply alg to a solved puzzle; report moved and twisted pieces in terms
-    of the named faces. Returns (moved, twisted, minx, summary_string)."""
+    of the named faces. Returns (moved, twisted, minx, summary_string).
+    Uses a local puzzle import so it survives Task 4 removing the top-level one."""
     from . import puzzle as P
     inv_names = {v: k for k, v in names.items()}
     stickers = puzzle.stickers
@@ -367,28 +379,32 @@ def describe_effect(puzzle, alg, names, minx=None):
     return moved, twisted, m, summary
 ```
 
-> Note: `describe_effect` now takes `puzzle` as its first argument (was a module global). It currently has **no callers** in the repo (verified by grep), so this is a forward-compatible signature change with nothing else to update.
+> Note: `describe_effect` now takes `puzzle` as its first argument (was a module global). It currently has **no callers** in the repo (verified by grep), so this is a forward-compatible signature change with nothing else to update. `piece_at` is unchanged; `solved_piece` gains an explicit `stickers` arg (no callers either).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: Run tests to verify it passes**
 
 Run: `python3 -m tests.test_core`
 Expected: `test_core: OK`
+
+Run: `python3 -m tests.test_puzzle`
+Expected: `all simulator invariants: OK` — confirms the kept backward-compat `pieces.CORNERS`/`EDGES` still satisfy the unchanged `test_puzzle.py:54`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add minx/pieces.py tests/test_core.py
-git commit -m "refactor: pieces.build_pieces() is pure, takes stickers/faces"
+git commit -m "refactor: add pure pieces.build_pieces(); keep compat groupings"
 ```
 
 ---
 
 ## Task 4: Puzzle class, Minx with history, MEGAMINX + compat globals
 
-This is the core of Phase A. Rewrite `minx/puzzle.py` so all derived data and methods live on a `Puzzle` instance; `Minx` carries a turn history; build `MEGAMINX`; and re-export its attributes as backward-compatible module globals so `method.py`/`make_guide.py`/`render.py`/`tests/test_puzzle.py` keep working unchanged.
+This is the core of Phase A. Rewrite `minx/puzzle.py` so all derived data and methods live on a `Puzzle` instance; `Minx` carries a turn history; build `MEGAMINX`; and re-export its attributes as backward-compatible module globals so `method.py`/`make_guide.py`/`render.py`/`tests/test_puzzle.py` keep working unchanged. Because `puzzle.py` now imports `pieces` (to call `build_pieces`), we also trim `pieces.py`'s top-level `puzzle` import and module-level groupings to break the cycle, and have `puzzle.py` supply `pieces.CORNERS`/`EDGES`/`ALL_PIECES` from the megaminx instance.
 
 **Files:**
 - Rewrite: `minx/puzzle.py`
+- Modify: `minx/pieces.py` (delete the top-level `from . import puzzle as P` and the `CORNERS/EDGES/ALL_PIECES` block added in Task 3 — `puzzle.py` now provides those names)
 - Test: `tests/test_core.py`, plus the unchanged `tests/test_puzzle.py` must still pass.
 
 - [ ] **Step 1: Write the failing test**
@@ -633,9 +649,30 @@ def Minx(colors=None):          # noqa: N802 - compat factory, was a class
     """Backward-compatible factory: a megaminx Minx. New code should prefer
     `puzzle.minx()` on an explicit Puzzle instance."""
     return MEGAMINX.minx(colors)
+
+
+# Backward-compat piece groupings ON the pieces module: previously computed in
+# pieces.py, now sourced from the megaminx instance so pieces.py needn't import
+# puzzle (which would form a puzzle<->pieces import cycle). Consumers that read
+# pieces.CORNERS/EDGES/ALL_PIECES (tests/test_puzzle.py, method.py) import
+# puzzle first, so these are populated by the time they're read.
+pieces.CORNERS = MEGAMINX.corners
+pieces.EDGES = MEGAMINX.edges
+pieces.ALL_PIECES = MEGAMINX.all_pieces
 ```
 
+> Note the top of this file imports `from . import pieces`; `Puzzle.__init__` calls `pieces.build_pieces(self.stickers, self.faces, has_edges=spec.has_edges)`.
+
 > Behavior notes preserved from the original: `turn` normalizes `times %= 5`; `name_faces`, `_adjacent`, `_opposites`, `parse_alg`, `apply_alg` bodies are unchanged except for `self.`/`math.` qualification. The compat `Minx` is now a factory function, not a class — every existing call site uses it as `Minx(...)`/`Minx()` so this is transparent.
+
+- [ ] **Step 3b: Break the cycle in `minx/pieces.py`**
+
+`puzzle.py` now imports `pieces`, so `pieces.py` must NOT import `puzzle` at module top. Edit `minx/pieces.py`:
+- Delete the top-level `from . import puzzle as P` line (added in Task 3).
+- Delete the backward-compat block `CORNERS, EDGES = build_pieces(P.STICKERS, P.FACES, has_edges=True)` and `ALL_PIECES = ...` (those names are now assigned by `puzzle.py`, shown above).
+- Leave `build_pieces`, `piece_at`, `solved_piece`, and `describe_effect` (with its **local** `from . import puzzle as P`) unchanged.
+
+After this, importing `pieces` alone defines no `CORNERS`; they appear once `puzzle` is imported. That is fine: every reader of `pieces.CORNERS` imports `puzzle` first.
 
 - [ ] **Step 4: Run the new and the regression tests**
 
@@ -648,7 +685,7 @@ Expected: `all simulator invariants: OK` (unchanged — this is the regression p
 - [ ] **Step 5: Commit**
 
 ```bash
-git add minx/puzzle.py tests/test_core.py
+git add minx/puzzle.py minx/pieces.py tests/test_core.py
 git commit -m "refactor: Puzzle instance + Minx history; MEGAMINX compat globals"
 ```
 
