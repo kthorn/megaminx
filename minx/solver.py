@@ -5,8 +5,6 @@ Holds bookkeeping (which pieces must stay solved), generic search helpers
 recording producing a structured Solution that a UI/API can replay."""
 from collections import deque
 from dataclasses import dataclass, field
-from . import puzzle as P
-
 
 class MethodError(Exception):
     pass
@@ -102,7 +100,7 @@ class BaseSolver:
 
     # -- generic search -----------------------------------------------------
 
-    def bfs_to(self, piece_colors, target_ids, ok=None, depth=4,
+    def bfs_to(self, piece_colors, target_ids, depth=4,
                faces=None, orient=None, extra=None):
         st = self.puzzle.stickers
         faces = faces if faces is not None else self.free_faces()
