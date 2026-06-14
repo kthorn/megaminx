@@ -1,5 +1,7 @@
 """Tests for the instance-based shared core. Run: python3 -m tests.test_core"""
 from minx import spec
+from minx import geometry
+from minx import spec as _spec
 
 
 def test_specs():
@@ -22,9 +24,28 @@ def test_specs():
     assert mm.color_ring == ki.color_ring  # same 5-color ring
 
 
+def test_build_megaminx():
+    normals, faces, stickers = geometry.build(_spec.MEGAMINX_SPEC)
+    assert len(normals) == 12 and len(faces) == 12
+    assert len(stickers) == 132
+    from collections import Counter
+    kinds = Counter(s.kind for s in stickers)
+    assert kinds == {"center": 12, "edge": 60, "corner": 60}
+
+
+def test_build_kilominx_not_yet():
+    try:
+        geometry.build(_spec.KILOMINX_SPEC)
+    except NotImplementedError:
+        return
+    raise AssertionError("kilominx subdivision should be unimplemented in Phase A")
+
+
 def main():
     test_specs()
-    print("test_core.test_specs: OK")
+    test_build_megaminx()
+    test_build_kilominx_not_yet()
+    print("test_core: OK")
 
 
 if __name__ == "__main__":

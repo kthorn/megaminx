@@ -6,8 +6,9 @@ nearest-centroid matching, so it is correct by construction.
 """
 import math
 from . import geometry
+from . import spec as _spec
 
-NORMALS, FACES, STICKERS = geometry.build()
+NORMALS, FACES, STICKERS = geometry.build(_spec.MEGAMINX_SPEC)
 N_STICKERS = len(STICKERS)
 ID_TO_IDX = {s.id: i for i, s in enumerate(STICKERS)}
 
