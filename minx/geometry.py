@@ -8,10 +8,10 @@ from itertools import product
 
 PHI = (1 + 5 ** 0.5) / 2
 
-# Fraction of the apothem (face-center -> edge distance) at which the layer
-# cuts cross a face.  Real megaminxes cut deep: the center pentagon spans
-# only ~55-60% of the face.
-CUT_FRACTION = 0.42  # cut line sits 42% of the way from the edge to the center
+# The fraction of the apothem (face-center -> edge distance) at which a layer
+# cut crosses a face now lives on the PuzzleSpec (spec.cut_fraction, 0.42 for
+# the megaminx); real megaminxes cut deep, so the center pentagon spans only
+# ~55-60% of the face.
 
 
 def _vadd(a, b):

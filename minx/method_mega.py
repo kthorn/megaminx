@@ -17,8 +17,7 @@ method as specified works on that scramble.
 """
 import random
 from . import puzzle as P
-from . import pieces
-from .solver import BaseSolver, MethodError, Step, Solution
+from .solver import BaseSolver, MethodError
 
 G = P.geometry
 
@@ -57,12 +56,6 @@ def find_edge(m, colors):
         if sorted(m.state[i] for i in ids) == want:
             return ids
     raise AssertionError(colors)
-
-
-def solved_ids(m, tracked):
-    st = P.STICKERS
-    return [ids for ids in tracked
-            if all(m.state[i] == st[i].face for i in ids)]
 
 
 class Solver(BaseSolver):
