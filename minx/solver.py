@@ -45,6 +45,49 @@ class BaseSolver:
         self.log = []
         self.solution = Solution()
         self._step_mark = None  # history length at begin_step
+        self._move_perm = self._build_move_perms()  # (f,t) -> pull-index tuple
+
+    # -- fast hot-path primitives (used by bfs_to/ferry) --------------------
+
+    def _build_move_perms(self):
+        """For each (face, signed-turns) precompute a pull-index array `mp`
+        such that applying it to a state tuple equals `Minx(state).turn(f,t)`:
+        new[j] = state[mp[j]]. Avoids constructing a Minx per BFS neighbour."""
+        n = self.puzzle.n_stickers
+        perms = {}
+        for f in range(12):
+            cw = self.puzzle.cw_perms[f]
+            for t in (1, -1, 2, -2):
+                base = list(range(n))
+                for _ in range(t % 5):
+                    nb = base[:]
+                    for i in range(n):
+                        nb[cw[i]] = base[i]
+                    base = nb
+                perms[(f, t)] = tuple(base)
+        return perms
+
+    def _apply(self, state, f, t):
+        mp = self._move_perm[(f, t)]
+        return tuple(state[j] for j in mp)
+
+    def _find_corner_state(self, state, colors):
+        want = sorted(colors)
+        for ids in self.puzzle.corner_slots.values():
+            if sorted(state[i] for i in ids) == want:
+                return ids
+        raise AssertionError(colors)
+
+    def _find_edge_state(self, state, colors):
+        want = sorted(colors)
+        for ids in self.puzzle.edge_slots.values():
+            if sorted(state[i] for i in ids) == want:
+                return ids
+        raise AssertionError(colors)
+
+    def _find_state(self, colors):
+        return (self._find_corner_state if len(colors) == 3
+                else self._find_edge_state)
 
     # -- per-step recording -------------------------------------------------
 
@@ -104,19 +147,19 @@ class BaseSolver:
                faces=None, orient=None, extra=None):
         st = self.puzzle.stickers
         faces = faces if faces is not None else self.free_faces()
-        find = self._find(piece_colors)
+        find = self._find_state(piece_colors)
+        target = tuple(target_ids)
         start = tuple(self.m.state)
         solved_flat = [(i, st[i].face) for ids in self.solved for i in ids]
 
         def done(state):
-            mm = self.puzzle.minx(list(state))
-            ids = find(mm, piece_colors)
-            if tuple(ids) != tuple(target_ids):
+            ids = find(state, piece_colors)
+            if tuple(ids) != target:
                 return False
             if orient:
                 for i in ids:
                     f = st[i].face
-                    if orient.get(f) is not None and mm.state[i] != orient[f]:
+                    if orient.get(f) is not None and state[i] != orient[f]:
                         return False
             for i, c in solved_flat:
                 if state[i] != c:
@@ -135,8 +178,7 @@ class BaseSolver:
                 continue
             for f in faces:
                 for t in (1, -1, 2, -2):
-                    mm = self.puzzle.minx(list(state)).turn(f, t)
-                    s2 = tuple(mm.state)
+                    s2 = self._apply(state, f, t)
                     if s2 in seen:
                         continue
                     seen.add(s2)
@@ -166,9 +208,10 @@ class BaseSolver:
         gray = self.gray
         cur = find(self.m, piece_colors)
         if gray not in {st[i].face for i in cur}:
+            find_state = self._find_state(piece_colors)
+
             def to_gray(state):
-                mm = self.puzzle.minx(list(state))
-                ids = find(mm, piece_colors)
+                ids = find_state(state, piece_colors)
                 return gray in {st[i].face for i in ids}
 
             solved_flat = [(i, st[i].face) for ids in self.solved for i in ids]
@@ -183,8 +226,7 @@ class BaseSolver:
                     continue
                 for f in faces:
                     for t in (1, -1, 2, -2):
-                        mm = self.puzzle.minx(list(state)).turn(f, t)
-                        s2 = tuple(mm.state)
+                        s2 = self._apply(state, f, t)
                         if s2 in seen:
                             continue
                         seen.add(s2)

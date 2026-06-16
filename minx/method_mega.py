@@ -50,6 +50,16 @@ def find_corner(m, colors):
     raise AssertionError(colors)
 
 
+def find_corner_state(state, colors):
+    """Like find_corner but on a raw state sequence (no Minx); used by hot
+    BFS predicates to avoid constructing a Minx per explored node."""
+    want = sorted(colors)
+    for ids in CORNER_SLOTS.values():
+        if sorted(state[i] for i in ids) == want:
+            return ids
+    raise AssertionError(colors)
+
+
 def find_edge(m, colors):
     want = sorted(colors)
     for ids in EDGE_SLOTS.values():
@@ -156,6 +166,11 @@ class Solver(BaseSolver):
         a, b = slot_faces
         slot = EDGE_SLOTS[edge_key(slot_faces)]
         colors = slot_faces
+        # early-skip: already correctly placed -> mark and return, no search.
+        if all(self.m.state[i] == P.STICKERS[i].face for i in slot):
+            self.assert_solved_intact("edge already placed")
+            self.mark(slot)
+            return ('skip', 0)
         attempts = []
         for mirror in ('R', 'L'):
             for k in range(5):
@@ -369,6 +384,13 @@ class Solver(BaseSolver):
         staging can be phase-matched."""
         cslot = CORNER_SLOTS[corner_key(corner_colors)]
         eslot = EDGE_SLOTS[edge_key(flank_colors)]
+        # early-skip: corner+edge pair already solved -> mark and return.
+        if all(self.m.state[i] == P.STICKERS[i].face for i in cslot) and \
+           all(self.m.state[i] == P.STICKERS[i].face for i in eslot):
+            self.assert_solved_intact("pair already placed")
+            self.mark(cslot)
+            self.mark(eslot)
+            return
         stage_c = CORNER_SLOTS[corner_key(
             (names['F'], names['R'], names['DR']))]
         probe = P.Minx()
@@ -423,14 +445,13 @@ class Solver(BaseSolver):
                 cur_ori = {P.STICKERS[i].face: self.m.state[i] for i in cur}
 
                 def corner_pinned(state):
-                    mm = P.Minx(list(state))
                     try:
-                        ids = find_corner(mm, corner_colors)
+                        ids = find_corner_state(state, corner_colors)
                     except AssertionError:
                         return False
                     if tuple(ids) != cur_pin:
                         return False
-                    return all(mm.state[i] == cur_ori[P.STICKERS[i].face]
+                    return all(state[i] == cur_ori[P.STICKERS[i].face]
                                for i in ids)
 
                 hit = False
