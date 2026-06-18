@@ -40,8 +40,9 @@ def main():
     b = K.minx(); b.turn(3); b.turn(3)
     assert a.state == b.state                 # double turn == two singles
 
-    # sexy move R U Ri Ui returns to solved in a finite, nontrivial number of
-    # repeats (proves named turns compose and invert correctly on the kilominx)
+    # sexy move R U Ri Ui has order 6 on the kilominx (proves named turns
+    # compose and invert correctly); 200 >> any plausible order, so failing to
+    # converge is a real bug, not an arbitrary cap.
     u = max(range(12), key=lambda fi: K.normals[fi][2])
     f = min(K.adj[u], key=lambda fi: K.normals[fi][1])
     names = K.name_faces(u, f)
@@ -52,7 +53,7 @@ def main():
         if m.is_solved():
             order = k
             break
-    assert order is not None and order > 1, order
+    assert order == 6, order
 
     print("all kilominx invariants: OK")
 
