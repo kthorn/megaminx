@@ -13,6 +13,47 @@ def main():
     assert len(K.corners) == 20 and all(len(v) == 3 for v in K.corners.values())
     assert K.edges == {}, K.edges
 
+    # --- order-5 face turns; the center sticker is fixed by its own turn ---
+    for fi in range(12):
+        cidx = K.id_to_idx[(fi, 'center', 0)]
+        m = K.minx()
+        for _ in range(5):
+            m.turn(fi)
+            assert m.state[cidx] == fi, (fi, 'center moved')
+        assert m.is_solved(), fi
+
+    # --- layer shape: 16 = 6 own (center + 5 corners) + 10 strip (corners) ---
+    for fi in range(12):
+        own = [i for i in K.layers[fi] if K.stickers[i].face == fi]
+        strip = [i for i in K.layers[fi] if K.stickers[i].face != fi]
+        assert len(own) == 6 and len(strip) == 10, (fi, len(own), len(strip))
+        assert Counter(K.stickers[i].kind for i in own) == \
+            {'center': 1, 'corner': 5}, fi
+        assert Counter(K.stickers[i].kind for i in strip) == {'corner': 10}, fi
+
+    # --- move engine composes & inverts ---
+    m = K.minx()
+    m.turn(0)
+    m.turn(0, -1)
+    assert m.is_solved()                      # a turn and its inverse cancel
+    a = K.minx(); a.turn(3, 2)
+    b = K.minx(); b.turn(3); b.turn(3)
+    assert a.state == b.state                 # double turn == two singles
+
+    # sexy move R U Ri Ui returns to solved in a finite, nontrivial number of
+    # repeats (proves named turns compose and invert correctly on the kilominx)
+    u = max(range(12), key=lambda fi: K.normals[fi][2])
+    f = min(K.adj[u], key=lambda fi: K.normals[fi][1])
+    names = K.name_faces(u, f)
+    m = K.minx()
+    order = None
+    for k in range(1, 200):
+        P.apply_alg(m, "R U Ri Ui", names)
+        if m.is_solved():
+            order = k
+            break
+    assert order is not None and order > 1, order
+
     print("all kilominx invariants: OK")
 
 
