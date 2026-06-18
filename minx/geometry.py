@@ -133,8 +133,7 @@ def build(spec):
         if spec.subdivision == 'edge_parallel':
             _subdivide_edge_parallel(spec, fi, fverts, centroid, stickers)
         elif spec.subdivision == 'kite_circular':
-            raise NotImplementedError(
-                "kite_circular subdivision is implemented in Phase B")
+            _subdivide_kite_circular(spec, fi, fverts, centroid, stickers)
         else:
             raise ValueError(f"unknown subdivision {spec.subdivision!r}")
     return normals, faces, stickers
@@ -170,4 +169,30 @@ def _subdivide_edge_parallel(spec, fi, fverts, centroid, stickers):
         for other in ((ci - 1) % 5, ci):
             ocut, oin = cuts[other]
             poly = _clip(poly, ocut, _vmul(oin, -1))
+        stickers.append(Sticker(fi, 'corner', ci, poly))
+
+
+def _subdivide_kite_circular(spec, fi, fverts, centroid, stickers):
+    """Kilominx face: 1 cosmetic center cap + 5 corner kites meeting at C.
+
+    The 5 kites tile the whole pentagon down to the face center C; the center
+    sticker is a small pentagon scaled toward C (its centroid is exactly C), so
+    it maps onto itself under the face turn and the renderer can draw it as a
+    circle (Phase D). The cap is cosmetic: the kites still extend to C beneath
+    it. Corner ci is keyed at vertex fverts[ci], matching the megaminx so
+    pieces.build_pieces groups the three tiles meeting at each shared dodeca-
+    hedron vertex into one corner piece."""
+    c = centroid
+    # midpoint of each face edge; edge ei joins fverts[ei] and fverts[ei+1]
+    mids = [_vmul(_vadd(fverts[ei], fverts[(ei + 1) % 5]), 0.5)
+            for ei in range(5)]
+
+    # center cap: face pentagon scaled toward C by cut_fraction (centroid == C)
+    cap = [_vadd(c, _vmul(_vsub(fverts[k], c), spec.cut_fraction))
+           for k in range(5)]
+    stickers.append(Sticker(fi, 'center', 0, cap))
+
+    # 5 corner kites: [V_ci, M_ci, C, M_(ci-1)]
+    for ci in range(5):
+        poly = [fverts[ci], mids[ci], c, mids[(ci - 1) % 5]]
         stickers.append(Sticker(fi, 'corner', ci, poly))

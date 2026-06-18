@@ -188,6 +188,7 @@ def apply_alg(minx, alg, names):
 # so existing megaminx-only consumers keep working unchanged.
 # ---------------------------------------------------------------------------
 MEGAMINX = Puzzle(_spec.MEGAMINX_SPEC)
+KILOMINX = Puzzle(_spec.KILOMINX_SPEC)
 
 NORMALS = MEGAMINX.normals
 FACES = MEGAMINX.faces
