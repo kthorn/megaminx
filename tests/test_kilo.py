@@ -1,7 +1,7 @@
 """Kilominx simulator invariants. Run: python3 -m tests.test_kilo"""
 from collections import Counter
 from minx import puzzle as P
-from minx.method_kilo import KiloSolver, corner_key
+from minx.method_kilo import KiloSolver, corner_key, scramble
 
 
 def main():
@@ -57,7 +57,36 @@ def main():
     assert order == 6, order
 
     _solver_stages_123()
+    _solver_full_solve()
+    _solver_solution_replays()
     print("all kilominx invariants: OK")
+
+
+def _solver_full_solve():
+    K = P.KILOMINX
+    # solve N scrambles end to end; each must finish solved and never raise
+    for seed in range(50):
+        m = K.minx()
+        scramble(m, n=40, seed=seed)
+        s = KiloSolver(m, white=0)
+        s.solve()
+        assert s.m.is_solved(), seed
+
+
+def _solver_solution_replays():
+    K = P.KILOMINX
+    m = K.minx()
+    scramble(m, n=40, seed=0)
+    start = list(m.state)                 # snapshot the scrambled state
+    s = KiloSolver(m, white=0)
+    s.solve()
+    assert len(s.solution) == 5           # five recorded stages
+    replay = K.minx(start)                # replay from the same scramble
+    for step in s.solution.steps:
+        for fi, t in step.moves:
+            replay.turn(fi, t)
+        assert replay.state == step.state_after, step.stage
+    assert replay.is_solved()
 
 
 def _solver_stages_123():

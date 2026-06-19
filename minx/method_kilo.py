@@ -136,3 +136,83 @@ class KiloSolver(BaseSolver):
                                        if s != tuple(slot)]
                 if not done:
                     raise MethodError(f"lower ring corner {key} failed")
+
+    # -- last layer (gray up): permute then orient --------------------------
+
+    def ll_names(self):
+        """All 5 grips with gray up (one per gray-adjacent front face)."""
+        return [self.puzzle.name_faces(self.gray, f)
+                for f in self.puzzle.adj[self.gray]]
+
+    def ll_permute(self):
+        """Greedily cycle the 5 gray corners into their slots (orientation
+        ignored) with CORNER_CYCLE."""
+        pz = self.puzzle
+        gray = self.gray
+
+        def placed(state):
+            n = 0
+            for key, ids in pz.corner_slots.items():
+                if gray in key and sorted(state[i] for i in ids) == sorted(key):
+                    n += 1
+            return n
+
+        for _ in range(20):
+            if placed(self.m.state) == 5:
+                return
+            cands = []
+            for names in self.ll_names():
+                mm = self.m.copy()
+                P.apply_alg(mm, CORNER_CYCLE, names)
+                cands.append((placed(mm.state), names))
+            cands.sort(key=lambda c: -c[0])
+            P.apply_alg(self.m, CORNER_CYCLE, cands[0][1])
+        raise MethodError("LL corner positions unsolved")
+
+    def ll_orient(self):
+        """Orient the 5 gray corners in place: hold one corner in the front-
+        right slot, repeat righty until its gray sticker faces up, then turn
+        ONLY the gray face to the next corner. A final gray turn realigns."""
+        pz = self.puzzle
+        gray = self.gray
+        names = self.ll_names()[0]
+        slot = pz.corner_slots[corner_key((gray, names['F'], names['R']))]
+        up_sticker = next(i for i in slot if pz.stickers[i].face == gray)
+        for outer in range(12):
+            if self.m.is_solved():
+                return
+            if self.m.state[up_sticker] != gray:
+                for rep in range(7):
+                    if self.m.state[up_sticker] == gray:
+                        break
+                    P.apply_alg(self.m, RIGHTY, names)
+                else:
+                    raise MethodError("righty did not orient the corner")
+            else:
+                self.m.turn(gray, 1)
+        if not self.m.is_solved():
+            raise MethodError("LL corner orientation failed")
+
+    # -- main ---------------------------------------------------------------
+
+    def solve(self):
+        for stage, fn in [
+            ("white-corners", self.white_corners),
+            ("upper-ring", self.upper_ring),
+            ("lower-ring", self.lower_ring),
+            ("ll-permute", self.ll_permute),
+            ("ll-orient", self.ll_orient),
+        ]:
+            self.begin_step(stage)
+            fn()
+            self.end_step()
+            self.assert_solved_intact(stage)
+        if not self.m.is_solved():
+            raise MethodError("end state not solved")
+
+
+def scramble(m, n=40, seed=None):
+    rng = random.Random(seed)
+    for _ in range(n):
+        m.turn(rng.randrange(12), rng.choice((1, 2, -1, -2)))
+    return m
