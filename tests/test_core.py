@@ -39,12 +39,13 @@ def test_build_megaminx():
     assert kinds == {"center": 12, "edge": 60, "corner": 60}
 
 
-def test_build_kilominx_not_yet():
-    try:
-        geometry.build(_spec.KILOMINX_SPEC)
-    except NotImplementedError:
-        return
-    raise AssertionError("kilominx subdivision should be unimplemented in Phase A")
+def test_build_kilominx():
+    normals, faces, stickers = geometry.build(_spec.KILOMINX_SPEC)
+    assert len(normals) == 12 and len(faces) == 12
+    assert len(stickers) == 72
+    from collections import Counter
+    kinds = Counter(s.kind for s in stickers)
+    assert kinds == {"center": 12, "corner": 60}
 
 
 def test_build_pieces():
@@ -150,7 +151,7 @@ def test_solver_records_replayable_steps():
 def main():
     test_specs()
     test_build_megaminx()
-    test_build_kilominx_not_yet()
+    test_build_kilominx()
     test_build_pieces()
     test_puzzle_instance_and_history()
     test_render_smoke()
