@@ -6,6 +6,12 @@ recording producing a structured Solution that a UI/API can replay."""
 from collections import deque
 from dataclasses import dataclass, field
 
+# Shared corner algorithms (grip-relative; correct on any puzzle via
+# name_faces). Single source of truth so the megaminx and kilominx booklets
+# teach identical moves; method_mega and method_kilo both import these.
+RIGHTY = "Ri DRi R DR"
+CORNER_CYCLE = "Ri BRi R BR Ri Fi R BRi Ri BR F R"
+
 class MethodError(Exception):
     pass
 

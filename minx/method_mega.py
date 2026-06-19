@@ -17,16 +17,14 @@ method as specified works on that scramble.
 """
 import random
 from . import puzzle as P
-from .solver import BaseSolver, MethodError
+from .solver import BaseSolver, MethodError, RIGHTY, CORNER_CYCLE
 
 G = P.geometry
 
-RIGHTY = "Ri DRi R DR"
 INSERT_RIGHT = "U R Ui Ri Ui Fi U F"     # U-F edge -> F-R slot
 INSERT_LEFT = "Ui Li U L U F Ui Fi"      # U-F edge -> F-L slot
 STAR_EO = "F U R Ui Ri Fi"
 EDGE_CYCLE = "R U Ri U R U2i Ri"          # cycles U-R -> U-BR -> U-BL -> U-R
-CORNER_CYCLE = "Ri BRi R BR Ri Fi R BRi Ri BR F R"   # CP1
 FLIP_FIX = "Fi U Li Ui"                   # flips the U-F edge in place
 
 

@@ -148,6 +148,15 @@ def test_solver_records_replayable_steps():
     assert replay.state == s.m.state
 
 
+def test_shared_alg_constants():
+    from minx import solver, method_mega
+    assert solver.RIGHTY == "Ri DRi R DR"
+    assert solver.CORNER_CYCLE == "Ri BRi R BR Ri Fi R BRi Ri BR F R"
+    # method_mega must reuse the shared objects, not redefine them
+    assert method_mega.RIGHTY is solver.RIGHTY
+    assert method_mega.CORNER_CYCLE is solver.CORNER_CYCLE
+
+
 def main():
     test_specs()
     test_build_megaminx()
@@ -158,6 +167,7 @@ def main():
     test_copy_preserves_history()
     test_base_solver_records_steps()
     test_solver_records_replayable_steps()
+    test_shared_alg_constants()
     print("test_core: OK")
 
 
