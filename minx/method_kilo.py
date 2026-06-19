@@ -177,6 +177,9 @@ class KiloSolver(BaseSolver):
         gray = self.gray
         names = self.ll_names()[0]
         slot = pz.corner_slots[corner_key((gray, names['F'], names['R']))]
+        # up_sticker is a fixed sticker POSITION in the front-right slot, not a
+        # piece; turning gray rotates which corner occupies that position, so
+        # the same index keeps reporting whichever corner is currently there.
         up_sticker = next(i for i in slot if pz.stickers[i].face == gray)
         for outer in range(12):
             if self.m.is_solved():
