@@ -1,6 +1,7 @@
 """Kilominx simulator invariants. Run: python3 -m tests.test_kilo"""
 from collections import Counter
 from minx import puzzle as P
+from minx.method_kilo import KiloSolver, corner_key
 
 
 def main():
@@ -55,7 +56,29 @@ def main():
             break
     assert order == 6, order
 
+    _solver_stages_123()
     print("all kilominx invariants: OK")
+
+
+def _solver_stages_123():
+    import random
+    K = P.KILOMINX
+    gray = K.opp[0]
+    for seed in range(15):
+        m = K.minx()
+        rng = random.Random(seed)
+        for _ in range(40):
+            m.turn(rng.randrange(12), rng.choice((1, 2, -1, -2)))
+        s = KiloSolver(m, white=0)
+        s.white_corners()
+        s.upper_ring()
+        s.lower_ring()
+        # every corner not on the gray (last) layer must now be home
+        for key, ids in K.corner_slots.items():
+            if gray in key:
+                continue
+            assert all(s.m.state[i] == K.stickers[i].face for i in ids), \
+                (seed, key)
 
 
 if __name__ == '__main__':
