@@ -97,7 +97,7 @@ def render(m, u_face, f_face, cmap, size=120, cam=None, arrow=None,
             if s.face != fi:
                 continue
             idx = pz.id_to_idx[s.id]
-            inset = _inset3d(s.polygon, pz.normals[fi], 0.028)
+            inset = _inset3d(s.polygon, pz.normals[fi], 0.045)
             poly2 = [cam.project(p) for p in inset]
             pts.extend(cam.project(p) for p in s.polygon)
             color_face = m.state[idx]
@@ -145,14 +145,20 @@ def render(m, u_face, f_face, cmap, size=120, cam=None, arrow=None,
     # stickers: inset in 3D within the face plane (uniform real-world gap,
     # correctly foreshortened) and drawn with rounded corners
     for kind_, geom, fill in polys:
+        if kind_ == 'poly':
+            p2 = [T(p) for p in geom]
+            out.append(f'<path d="{_rounded_path(p2)}" fill="{fill}"/>')
+    # center circles last, on top of the surrounding tiles, with a black ring
+    # so the center reads as a distinct disc rather than being overlapped by
+    # the neighbouring tiles that converge on it
+    for kind_, geom, fill in polys:
         if kind_ == 'circle':
             cx, cy, r = geom
             sx, sy = T((cx, cy))
+            sw = scale * 0.09
             out.append(f'<circle cx="{sx:.1f}" cy="{sy:.1f}" '
-                       f'r="{r * scale:.1f}" fill="{fill}"/>')
-        else:
-            p2 = [T(p) for p in geom]
-            out.append(f'<path d="{_rounded_path(p2)}" fill="{fill}"/>')
+                       f'r="{r * scale:.1f}" fill="{fill}" '
+                       f'stroke="#111" stroke-width="{sw:.2f}"/>')
     if outline_ids:
         for fi in vis:
             for s in pz.stickers:
