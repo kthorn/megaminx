@@ -10,6 +10,9 @@ sys.path.insert(0, str(ROOT))
 
 from minx import puzzle as P, method_mega as M, render as R
 from tests.test_puzzle import canonical_hold
+from guide_common import (svg_img, expand_alg, display_letter, goal_box,
+                          banner, holding, tips, congrats, F, colorword,
+                          FACE_LETTER_COLORS, render_booklet)
 
 OUT = ROOT / 'out'
 OUT.mkdir(exist_ok=True)
@@ -19,12 +22,6 @@ WHITE = NAMES['U']
 GRAY = P.OPP[WHITE]
 CMAP = R.color_map(WHITE, NAMES['F'])
 LNAMES = P.name_faces(GRAY, P.ADJ[GRAY][0])   # gray-up grip for LL pages
-
-FACE_LETTER_COLORS = {
-    'U': '#1565d8', 'F': '#0fa84e', 'R': '#e02020', 'L': '#ff8a00',
-    'D': '#7b2fbe', 'BR': '#1565d8', 'BL': '#1565d8',
-}
-
 
 def piece_ids(kind, faces):
     if kind == 'corner':
@@ -50,29 +47,6 @@ def white_layer_ids():
 
 def layer_ids(face):
     return set(P.LAYERS[face])
-
-
-def svg_img(svg, cls='pic', w=None):
-    import base64
-    b64 = base64.b64encode(svg.encode()).decode()
-    style = f' style="width:{w}"' if w else ''
-    return f'<img class="{cls}" src="data:image/svg+xml;base64,{b64}"{style}/>'
-
-
-def expand_alg(alg):
-    """'R U2i Ri' -> [('R',1), ('U',-1), ('U',-1), ('R',-1)] as (token, click)
-    pairs with one tile per click."""
-    out = []
-    for name, times in P.parse_alg(alg):
-        step = 1 if times > 0 else -1
-        for _ in range(abs(times)):
-            out.append((name, step))
-    return out
-
-
-def display_letter(token, click):
-    t = 'D' if token == 'DR' else token
-    return t + ('i' if click < 0 else '')
 
 
 def tiles_html(state, names, alg, cam_u, cam_f, bright=None, size=86):
@@ -101,11 +75,6 @@ def picture(state, cam_u, cam_f, bright=None, size=110, arrow=None,
     return svg_img(svg)
 
 
-def goal_box(inner, caption='Your Goal'):
-    return (f'<div class="goal">{inner}'
-            f'<div class="goalstar">{caption}</div></div>')
-
-
 # ---------------------------------------------------------------------------
 # Page assembly
 # ---------------------------------------------------------------------------
@@ -119,35 +88,6 @@ def page(body, number=None, cls=''):
         side = 'left' if number % 2 else 'right'
         num = f'<div class="pagenum {side}">{number}</div>'
     PAGES.append(f'<div class="page {cls}">{body}{num}</div>')
-
-
-def banner(stage, title):
-    return (f'<div class="topbar"><div class="stagebadge">STAGE {stage}:</div>'
-            f'<div class="banner">{title}</div></div>')
-
-
-def holding(text):
-    return (f'<div class="holding"><span class="holdhead">Holding Your '
-            f'Megaminx:</span> {text}</div>')
-
-
-def tips(items):
-    lis = ''.join(f'<li>{i}</li>' for i in items)
-    return f'<div class="tips"><span class="tiphead">Tips:</span><ul>{lis}</ul></div>'
-
-
-def congrats(text):
-    return (f'<div class="congrats"><div class="congratsbanner">'
-            f'Congratulations!</div><div class="congratsbody">{text}</div></div>')
-
-
-def F(letter):   # colored face letter like the original's (U) (R)
-    col = FACE_LETTER_COLORS.get(letter.rstrip('i'), '#1565d8')
-    return f'<span class="facelet" style="color:{col}">({letter})</span>'
-
-
-def colorword(word, color):
-    return f'<span style="color:{color};font-weight:800">{word}</span>'
 
 
 WHITEW = colorword('WHITE', '#5a6470')
@@ -861,7 +801,9 @@ def backpage():
     page(body, None, cls='backpage')
 
 
-def build(pages_only=None):
+def assemble():
+    """Run all page functions, returning the PAGES list."""
+    PAGES.clear()
     cover()
     stage1()
     notation()
@@ -877,14 +819,11 @@ def build(pages_only=None):
     stage9()
     stage10()
     backpage()
-    css = (ROOT / 'build' / 'guide.css').read_text()
-    html = f'''<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>{css}</style></head><body>{''.join(PAGES)}</body></html>'''
-    (OUT / 'guide.html').write_text(html)
-    import weasyprint
-    weasyprint.HTML(string=html, base_url=str(ROOT)).write_pdf(
-        OUT / 'guide.pdf')
-    print(f"wrote {OUT/'guide.pdf'} ({len(PAGES)} pages)")
+    return PAGES
+
+
+def build():
+    render_booklet(assemble(), OUT, 'guide', ROOT)
 
 
 if __name__ == '__main__':
