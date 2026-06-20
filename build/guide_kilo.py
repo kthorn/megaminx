@@ -170,6 +170,158 @@ def notation():
     page(body, 2)
 
 
+# --- stage 2: white corners -------------------------------------------------
+
+def white_corners_page():
+    # demo: solved cube with one white corner popped out by inverse-righty, so
+    # replaying RIGHTY at this grip drops it home.
+    bright = set(corner_ids((WHITE, NAMES['F'], NAMES['R'])))
+    bright |= {center_id(WHITE)}
+    goalp = picture(K.minx(), bright=bright, size=104)
+    demo = K.minx()
+    P.apply_alg(demo, "DRi Ri DR R", NAMES)   # inverse of RIGHTY = Ri DRi R DR
+    tiles, _ = tiles_html(demo, NAMES, RIGHTY, WHITE, NAMES['F'], bright=bright)
+    body = f'''
+      {banner(2, 'SOLVE THE WHITE CORNERS')}
+      {holding(f'Hold your kilominx with the {WHITEW} center on top {F("U")}. '
+               'You will fill the five corners around the white face, each '
+               'with white on top and its two side colors matching the side '
+               'centers.', 'Kilominx')}
+      {goal_box(goalp)}
+      {tips([
+        'Find a white corner in the bottom of the puzzle. Park it directly '
+        '<b>below the slot it belongs in</b> by turning the bottom faces.',
+        'Then repeat the <b>Righty</b> move below &mdash; '
+        f'{F("R")}<i>i</i> {F("D")}<i>i</i> {F("R")} {F("D")} &mdash; until the '
+        'corner pops up into place with white on top. Repeat 1, 2, or 3 times.',
+        'Turning the bottom faces never disturbs corners already finished on '
+        'top, so work one corner at a time.',
+      ])}
+      {tiles}
+    '''
+    page(body, 3)
+
+
+# --- stage 3: upper-middle ring ---------------------------------------------
+
+def upper_ring_page():
+    a, b = NAMES['F'], NAMES['R']
+    x = NAMES['DR']
+    bright = set(corner_ids((a, b, x)))
+    goalp = picture(K.minx(), bright=bright, size=104)
+    demo = K.minx()
+    P.apply_alg(demo, "DRi Ri DR R", NAMES)
+    tiles, _ = tiles_html(demo, NAMES, RIGHTY, WHITE, NAMES['F'], bright=bright)
+    body = f'''
+      {banner(3, 'SOLVE THE UPPER MIDDLE CORNERS')}
+      {holding('Keep white on top. Now fill the ring of five corners just '
+               'below the white ones &mdash; each has two side colors and no '
+               'white and no gray.', 'Kilominx')}
+      {goal_box(goalp)}
+      {tips([
+        'These corners are already in the middle &mdash; find one that is in '
+        'the wrong place (or twisted), and use the same <b>Righty</b> move to '
+        'kick it out and bring the right one in.',
+        'Park the corner you want directly below its slot, then repeat '
+        '<b>Righty</b> until it seats. Same move as the white corners, one row '
+        'lower.',
+      ])}
+      {tiles}
+    '''
+    page(body, 4)
+
+
+# --- stage 4: lower-middle ring ---------------------------------------------
+
+def lower_ring_page():
+    a = NAMES['F']
+    x, y = NAMES['DR'], NAMES['DL']
+    bright = set(corner_ids((a, x, y)))
+    goalp = picture(K.minx(), bright=bright, size=104)
+    demo = K.minx()
+    P.apply_alg(demo, "DRi Ri DR R", NAMES)
+    tiles, _ = tiles_html(demo, NAMES, RIGHTY, WHITE, NAMES['F'], bright=bright)
+    body = f'''
+      {banner(4, 'SOLVE THE LOWER MIDDLE CORNERS')}
+      {holding('Still white on top. Fill the next ring down &mdash; the five '
+               'corners that sit just above the gray face. None of these has '
+               'white; none has gray yet on top.', 'Kilominx')}
+      {goal_box(goalp)}
+      {tips([
+        'Exactly like before: park the corner below its slot and repeat '
+        '<b>Righty</b> until it drops in.',
+        'After this stage only the five {GRAYW} corners on the bottom are '
+        'left. Turn the whole puzzle over so gray is on top for the last two '
+        'pages.'.replace('{GRAYW}', GRAYW),
+      ])}
+      {tiles}
+    '''
+    page(body, 5)
+
+
+# --- stage 5: last layer, permute -------------------------------------------
+
+def ll_permute_page():
+    # all five gray corners + the gray center (adj[GRAY] is index-ordered, not
+    # ring-ordered, so collect gray corners straight from corner_slots).
+    bright = {center_id(GRAY)}
+    for key, ids in K.corner_slots.items():
+        if GRAY in key:
+            bright |= set(ids)
+    goalp = picture(K.minx(), bright=bright, size=104,
+                    cam_u=GRAY, cam_f=K.adj[GRAY][0], tilt=0.0, yaw=0.0)
+    demo = K.minx()
+    P.apply_alg(demo, CORNER_CYCLE + ' ' + CORNER_CYCLE, LNAMES)
+    tiles, _ = tiles_html(demo, LNAMES, CORNER_CYCLE, GRAY, LNAMES['F'])
+    body = f'''
+      {banner(5, 'LAST LAYER: MOVE THE CORNERS HOME')}
+      {holding(f'Turn the puzzle over so the {GRAYW} center is on top {F("U")}. '
+               'First get every gray corner into the right CORNER (ignore which '
+               'way it is twisted for now).', 'Kilominx')}
+      {goal_box(goalp, caption='Corners in place')}
+      {tips([
+        'Hold the puzzle so one corner that is already in the right place is '
+        'at the back-right. Then do the <b>Corner Cycle</b> below; it spins the '
+        'other three corners around.',
+        'Turn the gray top to look at the result, and repeat the Corner Cycle '
+        'until all five corners are home. They may still be twisted &mdash; '
+        'that is the next page.',
+      ])}
+      {tiles}
+    '''
+    page(body, 6)
+
+
+# --- stage 6: last layer, orient --------------------------------------------
+
+def ll_orient_page():
+    slot = corner_ids((GRAY, LNAMES['F'], LNAMES['R']))
+    bright = set(slot)
+    goalp = picture(K.minx(), size=104,
+                    cam_u=GRAY, cam_f=K.adj[GRAY][0], tilt=0.0, yaw=0.0)
+    demo = K.minx()
+    P.apply_alg(demo, "DRi Ri DR R", LNAMES)
+    tiles, _ = tiles_html(demo, LNAMES, RIGHTY, GRAY, LNAMES['F'], bright=bright)
+    body = f'''
+      {banner(6, 'LAST LAYER: TWIST THE CORNERS')}
+      {holding(f'Still {GRAYW} on top. Every corner is in the right place &mdash; '
+               'now twist each one so gray faces up. This uses the <b>Righty</b> '
+               'move you already know.', 'Kilominx')}
+      {goal_box(goalp, caption='Solved!')}
+      {tips([
+        'Look at the front-right corner. Repeat <b>Righty</b> until its gray '
+        'sticker faces up. The lower part will look scrambled &mdash; that is '
+        'normal, it fixes itself.',
+        'Now turn ONLY the gray top face to bring the next un-twisted corner to '
+        'the front-right, and repeat. Do not turn anything else.',
+        'When the last corner twists up, a final turn of the gray face snaps '
+        'the whole puzzle solved. You did it!',
+      ])}
+      {tiles}
+    '''
+    page(body, 7)
+
+
 # --- back page --------------------------------------------------------------
 
 def backpage():
@@ -205,6 +357,11 @@ def assemble():
     cover()
     pieces_page()
     notation()
+    white_corners_page()
+    upper_ring_page()
+    lower_ring_page()
+    ll_permute_page()
+    ll_orient_page()
     backpage()
     return PAGES
 

@@ -27,7 +27,7 @@ def test_kilo_booklet_builds():
     import guide_kilo
     import guide_common as gc
     pages = guide_kilo.assemble()
-    assert len(pages) == 4, len(pages)        # cover, pieces, notation, back
+    assert len(pages) == 9, len(pages)        # cover, pieces, notation, 5 stages, back
     html = gc.build_html(pages, guide_kilo.ROOT)
     assert html.startswith('<!DOCTYPE html>') and html.rstrip().endswith('</html>')
     assert 'data:image/svg+xml' in html       # at least one rendered picture
