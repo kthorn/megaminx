@@ -5,6 +5,11 @@ from . import puzzle as P
 
 G = P.geometry
 
+
+def _pz(puzzle):
+    return puzzle if puzzle is not None else P.MEGAMINX
+
+
 # Standard megaminx colour scheme, assigned around the canonical hold.
 PALETTE = {
     'white':  '#f4f4f4',
@@ -26,15 +31,16 @@ OPPOSITE_NAME = {
 }
 
 
-def color_map(white_face, front_face):
+def color_map(white_face, front_face, puzzle=None):
     """face index -> palette key, standard scheme."""
-    names = P.name_faces(white_face, front_face)
+    pz = _pz(puzzle)
+    names = pz.name_faces(white_face, front_face)
     cmap = {white_face: 'white'}
     ring = ['red', 'blue', 'yellow', 'purple', 'green']
     for key, col in zip(['F', 'R', 'BR', 'BL', 'L'], ring):
         cmap[names[key]] = col
     for f, col in list(cmap.items()):
-        cmap[P.OPP[f]] = OPPOSITE_NAME[col]
+        cmap[pz.opp[f]] = OPPOSITE_NAME[col]
     return cmap
 
 
@@ -51,11 +57,12 @@ def look_matrix(view_dir, up_hint):
 
 
 class Camera:
-    def __init__(self, u_face, f_face, tilt=0.42, yaw=0.18):
+    def __init__(self, u_face, f_face, tilt=0.42, yaw=0.18, puzzle=None):
         """Looks at the puzzle so face u is up-toward viewer, f in front.
         tilt: how much of the top face you see; yaw: rotation toward R."""
-        nu = P.NORMALS[u_face]
-        nf = P.NORMALS[f_face]
+        pz = _pz(puzzle)
+        nu = pz.normals[u_face]
+        nf = pz.normals[f_face]
         view = G._norm(tuple(nu[i] + tilt * nf[i] for i in range(3)))
         nr = G._cross(G._vmul(nf, -1), nu)
         view = G._norm(tuple(view[i] + yaw * nr[i] for i in range(3)))
@@ -67,28 +74,30 @@ class Camera:
         return (q[0], -q[1])   # SVG y goes down
 
 
-def visible_faces(cam):
-    return [fi for fi in range(12)
-            if G._dot(P.NORMALS[fi], cam.view) > 0.06]
+def visible_faces(cam, puzzle=None):
+    pz = _pz(puzzle)
+    return [fi for fi in range(len(pz.normals))
+            if G._dot(pz.normals[fi], cam.view) > 0.06]
 
 
 def render(m, u_face, f_face, cmap, size=120, cam=None, arrow=None,
            dim_faces=None, bright_ids=None, outline_ids=None,
-           only_layer=None, pad=4):
+           only_layer=None, pad=4, puzzle=None):
     """SVG of state m.  arrow: (face, +1/-1 clicks) draws a turn arrow.
     dim_faces: set of faces to render grayed out (booklet 'color doesn't
     matter' convention).  bright_ids: if given, only these sticker indices
     keep their colour; everything else is grayed."""
-    cam = cam or Camera(u_face, f_face)
-    vis = visible_faces(cam)
+    pz = _pz(puzzle)
+    cam = cam or Camera(u_face, f_face, puzzle=pz)
+    vis = visible_faces(cam, puzzle=pz)
     pts = []
     polys = []   # (depth, points2d, fill, stroke_w)
     for fi in vis:
-        for i, s in enumerate(P.STICKERS):
+        for i, s in enumerate(pz.stickers):
             if s.face != fi:
                 continue
-            idx = P.ID_TO_IDX[s.id]
-            inset = _inset3d(s.polygon, P.NORMALS[fi], 0.028)
+            idx = pz.id_to_idx[s.id]
+            inset = _inset3d(s.polygon, pz.normals[fi], 0.028)
             poly2 = [cam.project(p) for p in inset]
             pts.extend(cam.project(p) for p in s.polygon)
             color_face = m.state[idx]
@@ -100,7 +109,16 @@ def render(m, u_face, f_face, cmap, size=120, cam=None, arrow=None,
                 fill = '#b9bdc2'   # sentinel "unknown" sticker
             else:
                 fill = PALETTE[cmap[color_face]]
-            polys.append((poly2, fill))
+            if s.kind == 'center' and pz.spec.center_shape == 'circle':
+                cx = sum(p[0] for p in poly2) / len(poly2)
+                cy = sum(p[1] for p in poly2) / len(poly2)
+                r = min(math.dist((cx, cy),
+                                  ((poly2[k][0] + poly2[(k + 1) % len(poly2)][0]) / 2,
+                                   (poly2[k][1] + poly2[(k + 1) % len(poly2)][1]) / 2))
+                        for k in range(len(poly2)))
+                polys.append(('circle', (cx, cy, r), fill))
+            else:
+                polys.append(('poly', poly2, fill))
 
     xs = [p[0] for p in pts]
     ys = [p[1] for p in pts]
@@ -119,20 +137,26 @@ def render(m, u_face, f_face, cmap, size=120, cam=None, arrow=None,
     # black body behind everything (slight expand): draw hull of visible faces
     for fi in vis:
         face_poly = [T(cam.project(p)) for p in
-                     _expand(P.FACES[fi]['vertices'], 1.03)]
+                     _expand(pz.faces[fi]['vertices'], 1.03)]
         d = 'M' + ' L'.join(f'{x:.1f},{y:.1f}' for x, y in face_poly) + ' Z'
         out.append(f'<path d="{d}" fill="#111" stroke="#111" '
                    f'stroke-width="{scale*0.06:.2f}" '
                    'stroke-linejoin="round"/>')
     # stickers: inset in 3D within the face plane (uniform real-world gap,
     # correctly foreshortened) and drawn with rounded corners
-    for poly2, fill in polys:
-        p2 = [T(p) for p in poly2]
-        out.append(f'<path d="{_rounded_path(p2)}" fill="{fill}"/>')
+    for kind_, geom, fill in polys:
+        if kind_ == 'circle':
+            cx, cy, r = geom
+            sx, sy = T((cx, cy))
+            out.append(f'<circle cx="{sx:.1f}" cy="{sy:.1f}" '
+                       f'r="{r * scale:.1f}" fill="{fill}"/>')
+        else:
+            p2 = [T(p) for p in geom]
+            out.append(f'<path d="{_rounded_path(p2)}" fill="{fill}"/>')
     if outline_ids:
         for fi in vis:
-            for s in P.STICKERS:
-                if s.face != fi or P.ID_TO_IDX[s.id] not in outline_ids:
+            for s in pz.stickers:
+                if s.face != fi or pz.id_to_idx[s.id] not in outline_ids:
                     continue
                 proj = [cam.project(p) for p in s.polygon]
                 c = (sum(p[0] for p in proj) / len(proj),
@@ -144,7 +168,7 @@ def render(m, u_face, f_face, cmap, size=120, cam=None, arrow=None,
                            f'stroke-width="{scale*0.10:.2f}" '
                            'stroke-linejoin="round"/>')
     if arrow:
-        out.append(_arrow_svg(cam, arrow, T, scale))
+        out.append(_arrow_svg(cam, arrow, T, scale, puzzle=pz))
     out.append('</svg>')
     return ''.join(out)
 
@@ -195,12 +219,13 @@ def _expand(verts, factor):
             for v in verts]
 
 
-def _arrow_svg(cam, arrow, T, scale):
+def _arrow_svg(cam, arrow, T, scale, puzzle=None):
     """Curved red arrow showing a face turn, drawn in the face plane."""
+    pz = _pz(puzzle)
     face, clicks = arrow
-    n = P.NORMALS[face]
-    c = P.FACES[face]['centroid']
-    verts = P.FACES[face]['vertices']
+    n = pz.normals[face]
+    c = pz.faces[face]['centroid']
+    verts = pz.faces[face]['vertices']
     r = 0.62 * math.dist(verts[0], c)
     # build in-plane circle points; direction of sweep = sign of clicks as
     # seen from outside the face
@@ -236,9 +261,10 @@ def _arrow_svg(cam, arrow, T, scale):
 
 
 def render_top(m, u_face, f_face, cmap, size=120, arrow=None,
-               dim_faces=None):
+               dim_faces=None, puzzle=None):
     """Bird's-eye view of the U face plus the tops of the 5 ring faces -
     the classic last-layer diagram."""
-    cam = Camera(u_face, f_face, tilt=0.0, yaw=0.0)
+    pz = _pz(puzzle)
+    cam = Camera(u_face, f_face, tilt=0.0, yaw=0.0, puzzle=pz)
     return render(m, u_face, f_face, cmap, size=size, cam=cam, arrow=arrow,
-                  dim_faces=dim_faces)
+                  dim_faces=dim_faces, puzzle=pz)

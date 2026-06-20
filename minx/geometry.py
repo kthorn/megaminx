@@ -8,10 +8,10 @@ from itertools import product
 
 PHI = (1 + 5 ** 0.5) / 2
 
-# Fraction of the apothem (face-center -> edge distance) at which the layer
-# cuts cross a face.  Real megaminxes cut deep: the center pentagon spans
-# only ~55-60% of the face.
-CUT_FRACTION = 0.42  # cut line sits 42% of the way from the edge to the center
+# The fraction of the apothem (face-center -> edge distance) at which a layer
+# cut crosses a face now lives on the PuzzleSpec (spec.cut_fraction, 0.42 for
+# the megaminx); real megaminxes cut deep, so the center pentagon spans only
+# ~55-60% of the face.
 
 
 def _vadd(a, b):
@@ -119,9 +119,10 @@ class Sticker:
         self.id = (face, kind, index)
 
 
-def build():
-    """Returns (normals, faces, stickers) where faces[i] = dict with
-    'vertices', 'centroid', 'normal'; stickers = list of Sticker."""
+def build(spec):
+    """Returns (normals, faces, stickers) for the given PuzzleSpec.
+    Shared: dodecahedron vertices/normals, face vertices, Sticker class.
+    Per-puzzle: the face subdivision into stickers."""
     verts = dodecahedron_vertices()
     normals = face_normals()
     faces = []
@@ -129,40 +130,69 @@ def build():
     for fi, n in enumerate(normals):
         fverts, centroid = _face_vertices(n, verts)
         faces.append({'vertices': fverts, 'centroid': centroid, 'normal': n})
-
-        # cut lines: one parallel to each edge, CUT_FRACTION of the way in
-        cuts = []  # (point_on_line, inward_normal_in_plane)
-        for ei in range(5):
-            a, b = fverts[ei], fverts[(ei + 1) % 5]
-            mid = _vmul(_vadd(a, b), 0.5)
-            inward = _norm(_vsub(centroid, mid))
-            cutpt = _vadd(mid, _vmul(_vsub(centroid, mid), CUT_FRACTION))
-            cuts.append((cutpt, inward))
-
-        pent = list(fverts)
-        # center: inside all five cuts
-        poly = pent
-        for cutpt, inward in cuts:
-            poly = _clip(poly, cutpt, inward)
-        stickers.append(Sticker(fi, 'center', 0, poly))
-
-        # edge sticker ei: outside cut ei, inside cuts ei-1 and ei+1
-        for ei in range(5):
-            poly = pent
-            cutpt, inward = cuts[ei]
-            poly = _clip(poly, cutpt, _vmul(inward, -1))
-            for other in ((ei - 1) % 5, (ei + 1) % 5):
-                ocut, oin = cuts[other]
-                poly = _clip(poly, ocut, oin)
-            stickers.append(Sticker(fi, 'edge', ei, poly))
-
-        # corner sticker ci sits at vertex (ci): outside cuts ci-1 and ci
-        # (vertex ci is shared by edges ci-1 and ci)
-        for ci in range(5):
-            poly = pent
-            for other in ((ci - 1) % 5, ci):
-                ocut, oin = cuts[other]
-                poly = _clip(poly, ocut, _vmul(oin, -1))
-            stickers.append(Sticker(fi, 'corner', ci, poly))
-
+        if spec.subdivision == 'edge_parallel':
+            _subdivide_edge_parallel(spec, fi, fverts, centroid, stickers)
+        elif spec.subdivision == 'kite_circular':
+            _subdivide_kite_circular(spec, fi, fverts, centroid, stickers)
+        else:
+            raise ValueError(f"unknown subdivision {spec.subdivision!r}")
     return normals, faces, stickers
+
+
+def _subdivide_edge_parallel(spec, fi, fverts, centroid, stickers):
+    """Megaminx face: 1 center + 5 edges + 5 corners via edge-parallel cuts."""
+    cuts = []  # (point_on_line, inward_normal_in_plane)
+    for ei in range(5):
+        a, b = fverts[ei], fverts[(ei + 1) % 5]
+        mid = _vmul(_vadd(a, b), 0.5)
+        inward = _norm(_vsub(centroid, mid))
+        cutpt = _vadd(mid, _vmul(_vsub(centroid, mid), spec.cut_fraction))
+        cuts.append((cutpt, inward))
+
+    pent = list(fverts)
+    poly = pent
+    for cutpt, inward in cuts:
+        poly = _clip(poly, cutpt, inward)
+    stickers.append(Sticker(fi, 'center', 0, poly))
+
+    for ei in range(5):
+        poly = pent
+        cutpt, inward = cuts[ei]
+        poly = _clip(poly, cutpt, _vmul(inward, -1))
+        for other in ((ei - 1) % 5, (ei + 1) % 5):
+            ocut, oin = cuts[other]
+            poly = _clip(poly, ocut, oin)
+        stickers.append(Sticker(fi, 'edge', ei, poly))
+
+    for ci in range(5):
+        poly = pent
+        for other in ((ci - 1) % 5, ci):
+            ocut, oin = cuts[other]
+            poly = _clip(poly, ocut, _vmul(oin, -1))
+        stickers.append(Sticker(fi, 'corner', ci, poly))
+
+
+def _subdivide_kite_circular(spec, fi, fverts, centroid, stickers):
+    """Kilominx face: 1 cosmetic center cap + 5 corner kites meeting at C.
+
+    The 5 kites tile the whole pentagon down to the face center C; the center
+    sticker is a small pentagon scaled toward C (its centroid is exactly C), so
+    it maps onto itself under the face turn and the renderer can draw it as a
+    circle (Phase D). The cap is cosmetic: the kites still extend to C beneath
+    it. Corner ci is keyed at vertex fverts[ci], matching the megaminx so
+    pieces.build_pieces groups the three tiles meeting at each shared dodeca-
+    hedron vertex into one corner piece."""
+    c = centroid
+    # midpoint of each face edge; edge ei joins fverts[ei] and fverts[ei+1]
+    mids = [_vmul(_vadd(fverts[ei], fverts[(ei + 1) % 5]), 0.5)
+            for ei in range(5)]
+
+    # center cap: face pentagon scaled toward C by cut_fraction (centroid == C)
+    cap = [_vadd(c, _vmul(_vsub(fverts[k], c), spec.cut_fraction))
+           for k in range(5)]
+    stickers.append(Sticker(fi, 'center', 0, cap))
+
+    # 5 corner kites: [V_ci, M_ci, C, M_(ci-1)]
+    for ci in range(5):
+        poly = [fverts[ci], mids[ci], c, mids[(ci - 1) % 5]]
+        stickers.append(Sticker(fi, 'corner', ci, poly))

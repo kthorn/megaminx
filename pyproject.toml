@@ -1,0 +1,43 @@
+# Packaging + dependency documentation for the megaminx/kilominx project.
+#
+# The simulator (the `minx` package) is pure Python standard library — it has
+# NO runtime third-party dependencies. The only external dependency is
+# `weasyprint`, used solely by the booklet generator in `build/` to render the
+# HTML guide to PDF. It is therefore an optional ("booklet") extra, not a core
+# requirement: the engine, solver, renderer, and the test suite all run with a
+# bare Python install.
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "megaminx-guide"
+version = "0.1.0"
+description = "Geometry-derived megaminx/kilominx simulator and a sim-verified solving-guide booklet generator"
+readme = "README.md"
+# Engine + tests are verified on CPython 3.12; the README targets 3.13+. The
+# code uses only widely-available stdlib features (dataclasses, f-strings), so
+# the floor is conservative — tighten to ">=3.13" if you standardize on it.
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Kurt Thorn", email = "kurt.thorn@gmail.com" }]
+keywords = ["megaminx", "kilominx", "rubiks", "dodecahedron", "puzzle", "solver"]
+
+# No core runtime dependencies: the `minx` simulator is standard-library only.
+dependencies = []
+
+[project.optional-dependencies]
+# Needed only to build the printable guide (build/make_guide.py -> out/guide.pdf).
+# weasyprint also requires system libraries (cairo, pango, gdk-pixbuf, libffi).
+booklet = ["weasyprint>=60"]
+
+[project.urls]
+Homepage = "https://github.com/kthorn/megaminx"
+Repository = "https://github.com/kthorn/megaminx"
+
+# Only the simulator is an importable package. `build/` and `tests/` are run as
+# scripts/modules from the repo root (e.g. `python3 -m tests.test_puzzle`,
+# `python3 build/make_guide.py`) and are intentionally not packaged.
+[tool.setuptools]
+packages = ["minx"]
