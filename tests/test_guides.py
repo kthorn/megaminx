@@ -23,8 +23,20 @@ def test_center_circle_cosmetic():
     assert '<circle' not in msvg, "megaminx render must be unchanged"
 
 
+def test_kilo_booklet_builds():
+    import guide_kilo
+    import guide_common as gc
+    pages = guide_kilo.assemble()
+    assert len(pages) == 4, len(pages)        # cover, pieces, notation, back
+    html = gc.build_html(pages, guide_kilo.ROOT)
+    assert html.startswith('<!DOCTYPE html>') and html.rstrip().endswith('</html>')
+    assert 'data:image/svg+xml' in html       # at least one rendered picture
+    assert 'KILOMINX' in html
+
+
 def main():
     test_center_circle_cosmetic()
+    test_kilo_booklet_builds()
     print("test_guides: OK")
 
 
