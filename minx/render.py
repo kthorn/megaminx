@@ -109,7 +109,16 @@ def render(m, u_face, f_face, cmap, size=120, cam=None, arrow=None,
                 fill = '#b9bdc2'   # sentinel "unknown" sticker
             else:
                 fill = PALETTE[cmap[color_face]]
-            polys.append((poly2, fill))
+            if s.kind == 'center' and pz.spec.center_shape == 'circle':
+                cx = sum(p[0] for p in poly2) / len(poly2)
+                cy = sum(p[1] for p in poly2) / len(poly2)
+                r = min(math.dist((cx, cy),
+                                  ((poly2[k][0] + poly2[(k + 1) % len(poly2)][0]) / 2,
+                                   (poly2[k][1] + poly2[(k + 1) % len(poly2)][1]) / 2))
+                        for k in range(len(poly2)))
+                polys.append(('circle', (cx, cy, r), fill))
+            else:
+                polys.append(('poly', poly2, fill))
 
     xs = [p[0] for p in pts]
     ys = [p[1] for p in pts]
@@ -135,9 +144,15 @@ def render(m, u_face, f_face, cmap, size=120, cam=None, arrow=None,
                    'stroke-linejoin="round"/>')
     # stickers: inset in 3D within the face plane (uniform real-world gap,
     # correctly foreshortened) and drawn with rounded corners
-    for poly2, fill in polys:
-        p2 = [T(p) for p in poly2]
-        out.append(f'<path d="{_rounded_path(p2)}" fill="{fill}"/>')
+    for kind_, geom, fill in polys:
+        if kind_ == 'circle':
+            cx, cy, r = geom
+            sx, sy = T((cx, cy))
+            out.append(f'<circle cx="{sx:.1f}" cy="{sy:.1f}" '
+                       f'r="{r * scale:.1f}" fill="{fill}"/>')
+        else:
+            p2 = [T(p) for p in geom]
+            out.append(f'<path d="{_rounded_path(p2)}" fill="{fill}"/>')
     if outline_ids:
         for fi in vis:
             for s in pz.stickers:
