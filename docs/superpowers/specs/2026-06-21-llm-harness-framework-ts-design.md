@@ -37,6 +37,44 @@ static SPA. Default model **glm-5.2 via OpenRouter**. Megaminx coach is consumer
   **can** run in that same function or in the browser. The function is small and
   auth-gated; it is the entire server-side footprint.
 
+## Auth & key delivery (and the one way to delete the server)
+
+Worth recording because it's a natural "can Cognito do something clever here?"
+question. Cognito and the proxy function solve **different halves** — Cognito
+can replace the *auth*, but on this stack it cannot remove the *key-holding
+proxy*:
+
+- **Cognito replaces the auth half only.** A Cognito **User Pool** gives real
+  per-user accounts + JWTs in place of the static-site spec's shared-password →
+  HMAC token. That's a fine upgrade *if* you want accounts (and a stable user id
+  to attach per-user budgets/usage to). For a single shared family password it's
+  heavier than the ~20-line HMAC the static-site spec chose — which is exactly
+  why that spec listed Cognito as a "later upgrade that doesn't touch the static
+  compute." That call still holds.
+- **Cognito can't safely deliver the OpenRouter key to the browser.** A Cognito
+  **Identity Pool** vends temporary **AWS IAM** credentials — useful only for
+  services that accept IAM auth. The OpenRouter key is a **third-party secret**;
+  STS creds grant nothing at OpenRouter. You *could* IAM-allow the browser to
+  read the key from Secrets Manager, but that hands a long-lived,
+  credit-spending key to client JS — the exfiltration risk we're avoiding.
+- **The agent loop also forces server-side compute.** The coach is a multi-step
+  tool loop (model → run tool against the engine → feed result back → continue),
+  not a passthrough request, so it must run where both the tools and the key
+  live. API Gateway + a Cognito authorizer can gate the entrance but can't run
+  the loop, and streams SSE poorly; a Lambda Function URL in response-streaming
+  mode is the right home. So with OpenRouter the proxy survives regardless.
+
+**The one way to delete the server entirely (Cognito + Bedrock).** If the model
+endpoint is an **AWS-native** one — **Amazon Bedrock** — the whole proxy
+collapses: a Cognito **Identity Pool** vends IAM creds, the browser calls
+`bedrock:InvokeModelWithResponseStream` **directly**, and because the engine is
+already TS in the browser, the **AI SDK tool loop runs client-side too** (tools
+execute in-browser against `packages/engine`). No key, no proxy, no server —
+truly static. **Trade-off:** that's Bedrock's model menu (Claude, Llama,
+Mistral, Nova…), **not GLM/OpenRouter** — the price of deleting the lambda is
+giving up glm-5.2. This is a genuine fork to weigh against the default
+OpenRouter-via-proxy path, not a strict improvement.
+
 ## Decisions (proposed 2026-06-21)
 
 - **Provider seam = OpenRouter itself.** OpenRouter is OpenAI-compatible *and*
@@ -184,15 +222,19 @@ second runtime alongside the TS SPA.
 
 ## Decisions needed (before implementing B)
 
-1. **Host:** Cloudflare (Pages + Workers + D1) vs AWS (S3+CloudFront + Lambda
+1. **Model + topology:** OpenRouter/glm-5.2 behind a streaming proxy
+   (default; keeps GLM, needs the one function) **vs** Bedrock + Cognito
+   Identity Pool with a client-side loop (no server, but Bedrock's model menu,
+   no GLM). See "Auth & key delivery."
+2. **Host:** Cloudflare (Pages + Workers + D1) vs AWS (S3+CloudFront + Lambda
    Function URL + Turso). Picks the runtime and the persistence impl.
-2. **Persistence in v1?** None (client state, no history — coach-spec default)
+3. **Persistence in v1?** None (client state, no history — coach-spec default)
    vs Turso/D1 from the start (resumable sessions, cost audit).
-3. **OpenRouter provider package:** `@openrouter/ai-sdk-provider` vs the AI SDK's
+4. **OpenRouter provider package:** `@openrouter/ai-sdk-provider` vs the AI SDK's
    OpenAI-compatible provider pointed at OpenRouter's base URL. Minor; confirm at
    build time.
-4. **`glm-5.2` on OpenRouter with tool calling?** Same live check as Option A;
-   name a fallback model if not.
+5. **`glm-5.2` on OpenRouter with tool calling?** Same live check as Option A;
+   name a fallback model if not. (Moot if the Bedrock topology is chosen.)
 
 ## Out of scope
 
