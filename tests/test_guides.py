@@ -34,9 +34,21 @@ def test_kilo_booklet_builds():
     assert 'KILOMINX' in html
 
 
+def test_cube_booklet_builds():
+    import guide_cube
+    import guide_common as gc
+    pages = guide_cube.assemble()
+    assert len(pages) == 12, len(pages)       # cover, parts, notation, 8 stages, back
+    html = gc.build_html(pages, guide_cube.ROOT)
+    assert html.startswith('<!DOCTYPE html>') and html.rstrip().endswith('</html>')
+    assert 'data:image/svg+xml' in html       # at least one rendered picture
+    assert '4&times;4' in html
+
+
 def main():
     test_center_circle_cosmetic()
     test_kilo_booklet_builds()
+    test_cube_booklet_builds()
     print("test_guides: OK")
 
 
