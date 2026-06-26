@@ -18,8 +18,7 @@ sys.path.insert(0, str(ROOT / 'build'))
 
 from minx import cube as C
 from minx import cube_render as CR
-from minx.method_cube import (Cube4Solver, scramble, EO, NIKLAS, UPERM,
-                              PLL_PARITY, OLL_PARITY)
+from minx.method_cube import (Cube4Solver, scramble, EO, NIKLAS, PLL_PARITY, OLL_PARITY)
 from guide_common import (svg_img, goal_box, banner, holding, tips, congrats,
                           F, colorword, render_booklet)
 
@@ -87,9 +86,11 @@ def tiles(state, alg, cam_u=U, cam_f=Fr, size=78):
     cells = []
     for tok, mv in expand_cube(alg):
         if mv is None:
+            svg = CR.render(m, cam_u, cam_f, CMAP, size=size,
+                            cam=CR.camera(P4, cam_u, cam_f), puzzle=P4)
+            cells.append(f'<div class="tile">{svg_img(svg)}'
+                         f'<div class="movebox">{tok}</div></div>')
             m.move(tok)
-            cells.append(f'<div class="tile"><div class="movebox">{tok}</div>'
-                         '</div>')
             continue
         f, click = mv
         svg = CR.render(m, cam_u, cam_f, CMAP, size=size,
