@@ -19,7 +19,9 @@ sys.path.insert(0, str(ROOT / 'build'))
 from minx import cube as C
 from minx import cube_render as CR
 from minx.method_cube import (Cube4Solver, scramble, EO, NIKLAS, PLL_PARITY,
-                              OLL_PARITY, CENTER_BAR_LIFT)
+                              OLL_PARITY, CENTER_BAR_LIFT,
+                              CENTER_LAST_TWO_COLUMN, CENTER_LAST_TWO_ROW,
+                              CENTER_LAST_TWO_DIAG)
 from guide_common import (svg_img, goal_box, banner, holding, tips, congrats,
                           F, colorword, render_booklet)
 
@@ -258,6 +260,55 @@ def centers_page():
     page(body, 3)
 
 
+def last_two_centers_page():
+    # Column case demo (the row case is the mirror, shown as a note).
+    col_demo, _ = tiles(center_setup([(5, 25), (9, 21)]),
+                        CENTER_LAST_TWO_COLUMN, cam_u=U, cam_f=Fr)
+    # Diagonal case demo.
+    diag_demo, _ = tiles(center_setup([(5, 25), (10, 22)]),
+                         CENTER_LAST_TWO_DIAG, cam_u=U, cam_f=Fr)
+    # After-shots from top and bottom, to show both faces end solved.
+    after = center_setup([(5, 25), (9, 21)])
+    for t in CENTER_LAST_TWO_COLUMN.split():
+        after.move(t)
+    after_top = pic(after, cam_u=U, cam_f=Fr, size=120)
+    after_bot = pic(after, cam_u=D, cam_f=Fr, size=120)
+    body = f'''
+      {banner(3, 'THE LAST TWO CENTERS')}
+      {holding('When only two colors are left, they share the two opposite '
+               'faces. Look at how their pieces are split, then use the '
+               'matching fix below.', '4&times;4')}
+      <div class="note">Hold the two unsolved faces on top and bottom. The
+      four side centers are already solid &mdash; keep them that way. Only
+      inner slices (and, for the diagonal case, a top/bottom turn) are
+      used.</div>
+      <div class="partrow"><div class="parttext">
+        <div class="parthead" style="color:#0fa84e">TWO COLUMNS SPLIT</div>
+        If the swapped pairs line up as two columns, do:<br/>
+        <b>{CENTER_LAST_TWO_COLUMN}</b><br/>
+        <i>(Row split? Use the mirror: {CENTER_LAST_TWO_ROW})</i>
+      </div></div>
+      {col_demo}
+      <div class="partrow"><div class="parttext">
+        <div class="parthead" style="color:#7b2fbe">DIAGONAL SPLIT</div>
+        If the swapped pairs sit diagonal to each other, do:<br/>
+        <b>{CENTER_LAST_TWO_DIAG}</b>
+      </div></div>
+      {diag_demo}
+      <div class="note">Both unsolved faces finish at the same time:</div>
+      <div class="tiles">{after_top}{after_bot}</div>
+      {tips([
+        'Turn only the inner slices for the column and row cases &mdash; the '
+        'side centers stay solid.',
+        'The diagonal fix uses one top and one bottom turn; that is fine, the '
+        'side centers still come back solved.',
+        'Done! All six centers are solid blocks &mdash; move on to pairing '
+        'the edges.',
+      ])}
+    '''
+    page(body, 4)
+
+
 def edges_page():
     goal = pic(stage_state('edge-pairing'), size=120)
     body = f'''
@@ -277,7 +328,7 @@ def edges_page():
         '3&times;3!',
       ])}
     '''
-    page(body, 4)
+    page(body, 5)
 
 
 def white_cross_page():
@@ -297,7 +348,7 @@ def white_cross_page():
         'turns from now on.',
       ])}
     '''
-    page(body, 5)
+    page(body, 6)
 
 
 def white_corners_page():
@@ -317,7 +368,7 @@ def white_corners_page():
       ])}
       {demo}
     '''
-    page(body, 6)
+    page(body, 7)
 
 
 def middle_page():
@@ -338,7 +389,7 @@ def middle_page():
       ])}
       {demo}
     '''
-    page(body, 7)
+    page(body, 8)
 
 
 def yellow_cross_page():
@@ -357,7 +408,7 @@ def yellow_cross_page():
       ])}
       {demo}
     '''
-    page(body, 8)
+    page(body, 9)
 
 
 def last_layer_page():
@@ -376,7 +427,7 @@ def last_layer_page():
       ])}
       {demo}
     '''
-    page(body, 9)
+    page(body, 10)
 
 
 def parity_page():
@@ -398,7 +449,7 @@ def parity_page():
       </div></div>
       {pll}
     '''
-    page(body, 10)
+    page(body, 11)
 
 
 def back_page():
@@ -420,6 +471,7 @@ def assemble():
     pieces_page()
     notation()
     centers_page()
+    last_two_centers_page()
     edges_page()
     white_cross_page()
     white_corners_page()
