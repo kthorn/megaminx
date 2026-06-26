@@ -18,8 +18,10 @@ sys.path.insert(0, str(ROOT / 'build'))
 
 from minx import cube as C
 from minx import cube_render as CR
-from minx.method_cube import (Cube4Solver, scramble, EO, NIKLAS, UPERM,
-                              PLL_PARITY, OLL_PARITY)
+from minx.method_cube import (Cube4Solver, scramble, EO, NIKLAS, PLL_PARITY,
+                              OLL_PARITY, CENTER_BAR_LIFT,
+                              CENTER_LAST_TWO_COLUMN, CENTER_LAST_TWO_ROW,
+                              CENTER_LAST_TWO_DIAG)
 from guide_common import (svg_img, goal_box, banner, holding, tips, congrats,
                           F, colorword, render_booklet)
 
@@ -87,9 +89,11 @@ def tiles(state, alg, cam_u=U, cam_f=Fr, size=78):
     cells = []
     for tok, mv in expand_cube(alg):
         if mv is None:
+            svg = CR.render(m, cam_u, cam_f, CMAP, size=size,
+                            cam=CR.camera(P4, cam_u, cam_f), puzzle=P4)
+            cells.append(f'<div class="tile">{svg_img(svg)}'
+                         f'<div class="movebox">{tok}</div></div>')
             m.move(tok)
-            cells.append(f'<div class="tile"><div class="movebox">{tok}</div>'
-                         '</div>')
             continue
         f, click = mv
         svg = CR.render(m, cam_u, cam_f, CMAP, size=size,
@@ -121,6 +125,16 @@ def edge_ids(faces):
 
 def center_ids(face):
     return [ids[0] for ids in P4.centers if ST[ids[0]].face == face]
+
+
+def center_setup(swap_pairs):
+    """A canonical 4x4 state with chosen center stickers swapped (used to
+    demonstrate a center algorithm from a recognisable starting position).
+    Pairs are sticker ids; everything else stays solved."""
+    cols = list(P4.state().state)
+    for a, b in swap_pairs:
+        cols[a], cols[b] = cols[b], cols[a]
+    return P4.state(colors=cols)
 
 
 # ===========================================================================
@@ -213,18 +227,32 @@ def notation():
 
 def centers_page():
     goal = pic(stage_state('centers'), size=120)
+    # Demo: U already has a white bar on top; a second white bar sits in the
+    # Front face's right column. 2R slides it up to complete the white center.
+    demo, _ = tiles(center_setup([(70, 9), (74, 10)]), CENTER_BAR_LIFT,
+                    cam_u=U, cam_f=Fr)
     body = f'''
       {banner(2, 'BUILD THE 6 CENTERS')}
-      {holding('Pick a color to start (we use white). Gather its four center '
+      {holding('Pick a color to start (we use white). Build its four center '
                'pieces into one 2&times;2 block on a face. Then do the same for '
                'every color &mdash; opposite colors go on opposite faces.',
                '4&times;4')}
       {goal_box(goal, 'Goal: six solid centers')}
+      <div class="note">THE BAR METHOD: find two center pieces of your color
+      that sit next to each other on a side face &mdash; that is a 2&times;1
+      <b>bar</b>. Turn an inner slice (the middle layer) to slide the bar up
+      onto the face you are building. Make a second bar the same way and slide
+      it up next to the first to finish the 2&times;2 block.</div>
+      {demo}
+      <div class="note">Here the top face already has one white bar; a second
+      white bar waits in the front face&rsquo;s right column.
+      {F("2R")} (the inner slice next to the right face) slides it up to
+      complete the white center.</div>
       {tips([
-        'Use the inner slice turns (the middle layers) to bring matching '
-        'center pieces onto the same face, then park them together.',
-        'Finish a face, then hold it on the side or bottom so later slice '
-        'turns do not break it.',
+        'Build one face, then hold it on top or bottom so the inner slices '
+        'you use for the next face do not break it.',
+        'The last two colors are the tricky ones &mdash; that needs its own '
+        'page (next).',
         'When all six centers are solid blocks, the centers are done &mdash; '
         'their colors now tell you where every other piece belongs.',
       ])}
@@ -232,10 +260,59 @@ def centers_page():
     page(body, 3)
 
 
+def last_two_centers_page():
+    # Column case demo (the row case is the mirror, shown as a note).
+    col_demo, _ = tiles(center_setup([(5, 25), (9, 21)]),
+                        CENTER_LAST_TWO_COLUMN, cam_u=U, cam_f=Fr)
+    # Diagonal case demo.
+    diag_demo, _ = tiles(center_setup([(5, 25), (10, 22)]),
+                         CENTER_LAST_TWO_DIAG, cam_u=U, cam_f=Fr)
+    # After-shots from top and bottom, to show both faces end solved.
+    after = center_setup([(5, 25), (9, 21)])
+    for t in CENTER_LAST_TWO_COLUMN.split():
+        after.move(t)
+    after_top = pic(after, cam_u=U, cam_f=Fr, size=120)
+    after_bot = pic(after, cam_u=D, cam_f=Fr, size=120)
+    body = f'''
+      {banner(3, 'THE LAST TWO CENTERS')}
+      {holding('When only two colors are left, they share the two opposite '
+               'faces. Look at how their pieces are split, then use the '
+               'matching fix below.', '4&times;4')}
+      <div class="note">Hold the two unsolved faces on top and bottom. The
+      four side centers are already solid &mdash; keep them that way. Only
+      inner slices (and, for the diagonal case, a top/bottom turn) are
+      used.</div>
+      <div class="partrow"><div class="parttext">
+        <div class="parthead" style="color:#0fa84e">TWO COLUMNS SPLIT</div>
+        If the swapped pairs line up as two columns, do:<br/>
+        <b>{CENTER_LAST_TWO_COLUMN}</b><br/>
+        <i>(Row split? Use the mirror: {CENTER_LAST_TWO_ROW})</i>
+      </div></div>
+      {col_demo}
+      <div class="partrow"><div class="parttext">
+        <div class="parthead" style="color:#7b2fbe">DIAGONAL SPLIT</div>
+        If the swapped pairs sit diagonal to each other, do:<br/>
+        <b>{CENTER_LAST_TWO_DIAG}</b>
+      </div></div>
+      {diag_demo}
+      <div class="note">Both unsolved faces finish at the same time:</div>
+      <div class="tiles">{after_top}{after_bot}</div>
+      {tips([
+        'Turn only the inner slices for the column and row cases &mdash; the '
+        'side centers stay solid.',
+        'The diagonal fix uses one top and one bottom turn; that is fine, the '
+        'side centers still come back solved.',
+        'Done! All six centers are solid blocks &mdash; move on to pairing '
+        'the edges.',
+      ])}
+    '''
+    page(body, 4)
+
+
 def edges_page():
     goal = pic(stage_state('edge-pairing'), size=120)
     body = f'''
-      {banner(3, 'PAIR THE EDGES')}
+      {banner(4, 'PAIR THE EDGES')}
       {holding('Find two edge wings that share the same two colors and join '
                'them so they sit side by side as one edge. Repeat until all '
                '12 edges are paired.', '4&times;4')}
@@ -251,13 +328,13 @@ def edges_page():
         '3&times;3!',
       ])}
     '''
-    page(body, 4)
+    page(body, 5)
 
 
 def white_cross_page():
     goal = pic(stage_state('3x3:cross'), cam_u=D, cam_f=Fr, size=120)
     body = f'''
-      {banner(4, 'MAKE THE WHITE CROSS')}
+      {banner(5, 'MAKE THE WHITE CROSS')}
       {holding(f'Turn the cube so {WHITEW} is on the bottom. Make a white plus '
                'on the bottom, and make each edge&rsquo;s side color match its '
                'center.', '4&times;4')}
@@ -271,14 +348,14 @@ def white_cross_page():
         'turns from now on.',
       ])}
     '''
-    page(body, 5)
+    page(body, 6)
 
 
 def white_corners_page():
     goal = pic(stage_state('3x3:first-layer-corners'), cam_u=D, size=120)
     demo, _ = tiles(P4.state(), "R U R'", cam_u=U)
     body = f'''
-      {banner(5, 'FINISH THE WHITE LAYER')}
+      {banner(6, 'FINISH THE WHITE LAYER')}
       {holding('Put the four white corners in place to complete the bottom '
                'layer, white on the bottom and side colors matching.',
                '4&times;4')}
@@ -291,14 +368,14 @@ def white_corners_page():
       ])}
       {demo}
     '''
-    page(body, 6)
+    page(body, 7)
 
 
 def middle_page():
     goal = pic(stage_state('3x3:middle-layer'), cam_u=D, size=120)
     demo, _ = tiles(P4.state(), "U R U' R' U' F' U F", cam_u=U)
     body = f'''
-      {banner(6, 'SOLVE THE MIDDLE EDGES')}
+      {banner(7, 'SOLVE THE MIDDLE EDGES')}
       {holding('Flip the cube so white is on the bottom and yellow on top. '
                'Place the four middle-layer edges (the ones with no yellow).',
                '4&times;4')}
@@ -312,14 +389,14 @@ def middle_page():
       ])}
       {demo}
     '''
-    page(body, 7)
+    page(body, 8)
 
 
 def yellow_cross_page():
     goal = pic(stage_state('3x3:last-layer-orient'), size=120)
     demo, _ = tiles(P4.state(), EO)
     body = f'''
-      {banner(7, 'YELLOW CROSS &amp; TOP')}
+      {banner(8, 'YELLOW CROSS &amp; TOP')}
       {holding('With yellow on top, make a yellow cross, then make the whole '
                'top face yellow.', '4&times;4')}
       {goal_box(goal, 'Goal: yellow top')}
@@ -331,14 +408,14 @@ def yellow_cross_page():
       ])}
       {demo}
     '''
-    page(body, 8)
+    page(body, 9)
 
 
 def last_layer_page():
     goal = pic(P4.state(), size=120)
     demo, _ = tiles(P4.state(), NIKLAS)
     body = f'''
-      {banner(8, 'FINISH THE LAST LAYER')}
+      {banner(9, 'FINISH THE LAST LAYER')}
       {holding('Move the last pieces into place: first the corners, then the '
                'edges, until the cube is solved.', '4&times;4')}
       {goal_box(goal, 'Goal: solved!')}
@@ -350,13 +427,13 @@ def last_layer_page():
       ])}
       {demo}
     '''
-    page(body, 9)
+    page(body, 10)
 
 
 def parity_page():
     pll, _ = tiles(P4.state(), PLL_PARITY)
     body = f'''
-      {banner(9, 'PARITY (4&times;4 ONLY)')}
+      {banner(10, 'PARITY (4&times;4 ONLY)')}
       <div class="note">Because a 4&times;4 has split edges, you can reach two
       cases a 3&times;3 never shows. They are not mistakes &mdash; just do the
       matching fix and keep going.</div>
@@ -372,7 +449,7 @@ def parity_page():
       </div></div>
       {pll}
     '''
-    page(body, 10)
+    page(body, 11)
 
 
 def back_page():
@@ -394,6 +471,7 @@ def assemble():
     pieces_page()
     notation()
     centers_page()
+    last_two_centers_page()
     edges_page()
     white_cross_page()
     white_corners_page()

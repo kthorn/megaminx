@@ -8,10 +8,8 @@ last-layer/parity/edge-pairing algorithms are verified here, and the full 3x3
 and 4x4 solvers are run on many scrambles and asserted to end solved.
 """
 from minx import cube as C
-from minx import cube_pieces
 from minx.method_cube import (Cube3Solver, Cube4Solver, scramble,
-                              EO, SUNE, NIKLAS, UPERM, TPERM,
-                              PLL_PARITY, OLL_PARITY)
+                              NIKLAS, UPERM, PLL_PARITY, OLL_PARITY)
 
 
 def test_geometry():
@@ -85,6 +83,58 @@ def test_parity_algs_preserve_reduction():
         assert reduced(m), alg
 
 
+def test_center_algs():
+    """The center algorithms the booklet renders, verified in-sim."""
+    from minx.method_cube import (CENTER_BAR_LIFT, CENTER_LAST_TWO_COLUMN,
+                                  CENTER_LAST_TWO_ROW, CENTER_LAST_TWO_DIAG)
+    from minx import cube as _C
+    P = _C.CUBE4
+    st = P.stickers
+    cenids = {f: [ids[0] for ids in P.centers if st[ids[0]].face == f]
+              for f in range(6)}
+
+    def fc(s, f):
+        return [s[i] for i in cenids[f]]
+
+    def solved_all(s):
+        return all(fc(s, f) == [f] * 4 for f in range(6))
+
+    def corners_home(s):
+        return all(s[i] == st[i].face for ids in P.corners for i in ids)
+
+    def build(pairs):
+        cols = list(P.state().state)
+        for a, b in pairs:
+            cols[a], cols[b] = cols[b], cols[a]
+        return P.state(colors=cols)
+
+    # Bar lift: U has a white bar on top; a second white bar in Front's right
+    # column. 2R slides it up and completes the U center; corners stay home.
+    m = build([(70, 9), (74, 10)])
+    m.do(CENTER_BAR_LIFT)
+    assert fc(m.state, 0) == [0, 0, 0, 0]      # U center completed
+    assert corners_home(m.state)
+
+    # Last two centers, column split -> all six solved, corners home.
+    m = build([(5, 25), (9, 21)])
+    m.do(CENTER_LAST_TWO_COLUMN)
+    assert solved_all(m.state)
+    assert corners_home(m.state)
+
+    # Last two centers, row split -> all six solved, corners home.
+    m = build([(5, 25), (6, 26)])
+    m.do(CENTER_LAST_TWO_ROW)
+    assert solved_all(m.state)
+    assert corners_home(m.state)
+
+    # Last two centers, diagonal split -> all six solved, four side centers
+    # intact. (Corners are NOT home: the alg uses outer U/D turns -- OK.)
+    m = build([(5, 25), (10, 22)])
+    m.do(CENTER_LAST_TWO_DIAG)
+    assert solved_all(m.state)
+    assert all(fc(m.state, f) == [f] * 4 for f in (2, 3, 4, 5))
+
+
 def test_solve_3x3(n=40):
     P = C.CUBE3
     for seed in range(n):
@@ -106,6 +156,7 @@ def main():
     test_moves()
     test_last_layer_algs()
     test_parity_algs_preserve_reduction()
+    test_center_algs()
     test_solve_3x3()
     test_solve_4x4()
     print("test_cube: OK")
