@@ -355,6 +355,16 @@ class Cube3Solver:
 PLL_PARITY = "2R2 U2 2R2 Uw2 2R2 Uw2"          # swap two opposite last-layer edges
 OLL_PARITY = "Rw2 B2 U2 Lw U2 Rw' U2 Rw U2 F2 Rw F2 Lw' B2 Rw2"  # flip one edge
 
+# Center-building algorithms for the 4x4 booklet, verified in-sim (see
+# tests/test_cube.py:test_center_algs). Each is rendered as a move diagram in
+# build/guide_cube.py. Inner-slice-only algs leave the corners home; the
+# diagonal alg uses outer U/D turns so corners move (fine -- centres stage does
+# not depend on corners).
+CENTER_BAR_LIFT = "2R"                       # slide a 2x1 bar up to complete a center
+CENTER_LAST_TWO_COLUMN = "2U2 2B2 2U2"       # last two faces, column split
+CENTER_LAST_TWO_ROW = "2U2 2L2 2U2"          # last two faces, row split (mirror)
+CENTER_LAST_TWO_DIAG = "U' 2R2 U' D' 2R2"    # last two faces, diagonal split
+
 # Edge-pairing primitives: each is a wide turn, a 3x3-style edge insert, then
 # the wide turn back. Because the inner part uses only outer turns, the whole
 # sequence leaves every centre solved while merging wings -- so edge pairing
