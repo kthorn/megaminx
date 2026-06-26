@@ -18,7 +18,8 @@ sys.path.insert(0, str(ROOT / 'build'))
 
 from minx import cube as C
 from minx import cube_render as CR
-from minx.method_cube import (Cube4Solver, scramble, EO, NIKLAS, PLL_PARITY, OLL_PARITY)
+from minx.method_cube import (Cube4Solver, scramble, EO, NIKLAS, PLL_PARITY,
+                              OLL_PARITY, CENTER_BAR_LIFT)
 from guide_common import (svg_img, goal_box, banner, holding, tips, congrats,
                           F, colorword, render_booklet)
 
@@ -124,6 +125,16 @@ def center_ids(face):
     return [ids[0] for ids in P4.centers if ST[ids[0]].face == face]
 
 
+def center_setup(swap_pairs):
+    """A canonical 4x4 state with chosen center stickers swapped (used to
+    demonstrate a center algorithm from a recognisable starting position).
+    Pairs are sticker ids; everything else stays solved."""
+    cols = list(P4.state().state)
+    for a, b in swap_pairs:
+        cols[a], cols[b] = cols[b], cols[a]
+    return P4.state(colors=cols)
+
+
 # ===========================================================================
 # Pages
 # ===========================================================================
@@ -214,18 +225,32 @@ def notation():
 
 def centers_page():
     goal = pic(stage_state('centers'), size=120)
+    # Demo: U already has a white bar on top; a second white bar sits in the
+    # Front face's right column. 2R slides it up to complete the white center.
+    demo, _ = tiles(center_setup([(70, 9), (74, 10)]), CENTER_BAR_LIFT,
+                    cam_u=U, cam_f=Fr)
     body = f'''
       {banner(2, 'BUILD THE 6 CENTERS')}
-      {holding('Pick a color to start (we use white). Gather its four center '
+      {holding('Pick a color to start (we use white). Build its four center '
                'pieces into one 2&times;2 block on a face. Then do the same for '
                'every color &mdash; opposite colors go on opposite faces.',
                '4&times;4')}
       {goal_box(goal, 'Goal: six solid centers')}
+      <div class="note">THE BAR METHOD: find two center pieces of your color
+      that sit next to each other on a side face &mdash; that is a 2&times;1
+      <b>bar</b>. Turn an inner slice (the middle layer) to slide the bar up
+      onto the face you are building. Make a second bar the same way and slide
+      it up next to the first to finish the 2&times;2 block.</div>
+      {demo}
+      <div class="note">Here the top face already has one white bar; a second
+      white bar waits in the front face&rsquo;s right column.
+      {F("2R")} (the inner slice next to the right face) slides it up to
+      complete the white center.</div>
       {tips([
-        'Use the inner slice turns (the middle layers) to bring matching '
-        'center pieces onto the same face, then park them together.',
-        'Finish a face, then hold it on the side or bottom so later slice '
-        'turns do not break it.',
+        'Build one face, then hold it on top or bottom so the inner slices '
+        'you use for the next face do not break it.',
+        'The last two colors are the tricky ones &mdash; that needs its own '
+        'page (next).',
         'When all six centers are solid blocks, the centers are done &mdash; '
         'their colors now tell you where every other piece belongs.',
       ])}
