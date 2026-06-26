@@ -312,7 +312,7 @@ def last_two_centers_page():
 def edges_page():
     goal = pic(stage_state('edge-pairing'), size=120)
     body = f'''
-      {banner(3, 'PAIR THE EDGES')}
+      {banner(4, 'PAIR THE EDGES')}
       {holding('Find two edge wings that share the same two colors and join '
                'them so they sit side by side as one edge. Repeat until all '
                '12 edges are paired.', '4&times;4')}
@@ -334,7 +334,7 @@ def edges_page():
 def white_cross_page():
     goal = pic(stage_state('3x3:cross'), cam_u=D, cam_f=Fr, size=120)
     body = f'''
-      {banner(4, 'MAKE THE WHITE CROSS')}
+      {banner(5, 'MAKE THE WHITE CROSS')}
       {holding(f'Turn the cube so {WHITEW} is on the bottom. Make a white plus '
                'on the bottom, and make each edge&rsquo;s side color match its '
                'center.', '4&times;4')}
@@ -355,7 +355,7 @@ def white_corners_page():
     goal = pic(stage_state('3x3:first-layer-corners'), cam_u=D, size=120)
     demo, _ = tiles(P4.state(), "R U R'", cam_u=U)
     body = f'''
-      {banner(5, 'FINISH THE WHITE LAYER')}
+      {banner(6, 'FINISH THE WHITE LAYER')}
       {holding('Put the four white corners in place to complete the bottom '
                'layer, white on the bottom and side colors matching.',
                '4&times;4')}
@@ -375,7 +375,7 @@ def middle_page():
     goal = pic(stage_state('3x3:middle-layer'), cam_u=D, size=120)
     demo, _ = tiles(P4.state(), "U R U' R' U' F' U F", cam_u=U)
     body = f'''
-      {banner(6, 'SOLVE THE MIDDLE EDGES')}
+      {banner(7, 'SOLVE THE MIDDLE EDGES')}
       {holding('Flip the cube so white is on the bottom and yellow on top. '
                'Place the four middle-layer edges (the ones with no yellow).',
                '4&times;4')}
@@ -396,7 +396,7 @@ def yellow_cross_page():
     goal = pic(stage_state('3x3:last-layer-orient'), size=120)
     demo, _ = tiles(P4.state(), EO)
     body = f'''
-      {banner(7, 'YELLOW CROSS &amp; TOP')}
+      {banner(8, 'YELLOW CROSS &amp; TOP')}
       {holding('With yellow on top, make a yellow cross, then make the whole '
                'top face yellow.', '4&times;4')}
       {goal_box(goal, 'Goal: yellow top')}
@@ -415,7 +415,7 @@ def last_layer_page():
     goal = pic(P4.state(), size=120)
     demo, _ = tiles(P4.state(), NIKLAS)
     body = f'''
-      {banner(8, 'FINISH THE LAST LAYER')}
+      {banner(9, 'FINISH THE LAST LAYER')}
       {holding('Move the last pieces into place: first the corners, then the '
                'edges, until the cube is solved.', '4&times;4')}
       {goal_box(goal, 'Goal: solved!')}
@@ -433,7 +433,7 @@ def last_layer_page():
 def parity_page():
     pll, _ = tiles(P4.state(), PLL_PARITY)
     body = f'''
-      {banner(9, 'PARITY (4&times;4 ONLY)')}
+      {banner(10, 'PARITY (4&times;4 ONLY)')}
       <div class="note">Because a 4&times;4 has split edges, you can reach two
       cases a 3&times;3 never shows. They are not mistakes &mdash; just do the
       matching fix and keep going.</div>
