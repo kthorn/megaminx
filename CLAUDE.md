@@ -11,16 +11,27 @@ diagram is executed on a computer model and verified to leave previously-solved
 pieces intact, so the booklet is correct by construction (many online megaminx
 guides contain algorithms that simply don't work).
 
+## What else is here
+
+The repo has since grown two sibling puzzles built on the same idea: the
+**kilominx** (corners-only megaminx, sharing the dodecahedron engine) and the
+**4×4 Rubik's cube** (a separate cube engine — see below). Each has its own
+simulator-proved solver and picture booklet.
+
 ## Commands
 
 ```sh
-python3 -m tests.test_puzzle     # simulator invariants (the test suite); prints "all simulator invariants: OK"
-python3 build/make_guide.py      # build the booklet: out/guide.html + out/guide.pdf
+python3 -m tests.test_puzzle     # megaminx invariants; prints "all simulator invariants: OK"
+python3 -m tests.test_kilo       # kilominx invariants
+python3 -m tests.test_cube       # 3x3 + 4x4 cube invariants and solver proof-by-fuzzing
+python3 build/make_guide.py      # megaminx booklet -> out/guide.{html,pdf}
+python3 build/guide_kilo.py      # kilominx booklet -> out/guide_kilo.{html,pdf}
+python3 build/guide_cube.py      # 4x4 cube booklet -> out/guide_cube.{html,pdf}
 ```
 
 - Run everything from the repo root (modules are imported as `minx.*` and
   `tests.*`; there is no installed package).
-- `build/make_guide.py` needs **Python 3.13+** with `weasyprint`.
+- The `build/guide_*.py` scripts need **Python 3.13+** with `weasyprint`.
 - There is no pytest config despite the `.pytest_cache/` dir — tests are a plain
   `main()`. The diagnostic harnesses under `build/diag_*.py` take CLI args
   (e.g. `python3 build/diag_stage6.py 300` runs 300 white-face seeds).
@@ -68,6 +79,31 @@ permutations are never hand-coded. Read the layers bottom-up:
    following the printed text literally, used to find gaps in the wording
    (`diag_stage6_fast.py` generates legal stage-6 start states directly instead
    of solving stages 1–5).
+
+### The 4×4 cube (separate engine)
+
+A cube is **not** a dodecahedron, so it has its own parallel stack under
+`minx/` that mirrors the layers above but cannot share the geometry/move
+engine. It reuses only `minx/render.py` (which is solid-agnostic) and the
+booklet framework. Same "correct by construction" discipline.
+
+- **`minx/cube_geometry.py`** — builds an N×N cube: 6 face normals, each face an
+  N×N grid of square sticker polygons (centroids).
+- **`minx/cube.py`** — `CubePuzzle(spec)` + `CubeState`. A face/slab turn is a
+  90° rotation found by nearest-centroid matching (same trick as the minx
+  engine); `CUBE3` and `CUBE4` instances; cube notation `parse_alg`
+  (`R`, `R'`, `R2`, `Rw` wide, `2R` inner slice).
+- **`minx/cube_pieces.py`** — groups stickers into cubies (corners/edges/centres)
+  by 3D cubie position.
+- **`minx/method_cube.py`** — `Cube3Solver` (beginner layer-by-layer: cross →
+  first-layer corners → middle → two-look last layer, via verified case tables +
+  algorithms) and `Cube4Solver` (reduction: greedy centre build → centre-
+  preserving edge pairing → map to a 3×3 and replay → OLL/PLL parity). Every
+  solve is asserted solved, so a passing fuzz run is the proof.
+- **`minx/cube_render.py`** — the cube colour scheme + camera helpers wrapping
+  `minx/render.py`.
+- **`build/guide_cube.py`** — the 4×4 booklet (reduction method), every diagram
+  rendered from a `CubePuzzle` state.
 
 ### The canonical invariant
 
