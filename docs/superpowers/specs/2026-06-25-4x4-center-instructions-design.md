@@ -22,15 +22,17 @@ verified).
 
 ## Verified algorithms (discovered and checked in-sim)
 
-All four below were verified against `minx.cube.CUBE4`. "Corners untouched"
-means every corner sticker is back at its home face after the sequence.
+All four below were verified against `minx.cube.CUBE4`. "Corners home" means
+every corner sticker is back at its home face after the sequence (true for the
+inner-slice-only algs; the diagonal alg uses outer U/D turns so corners move,
+which is fine — the centers stage does not depend on corners).
 
 | Case | Setup (canonical) | Algorithm | Verified result |
 |---|---|---|---|
-| Make a bar | white vertical bar in Front's right column; U centers non-white | `2R` | lifts to a white horizontal bar on top; corners untouched |
-| Last two, column split | last two colors on U/D, swapped pairs in columns; four side centers solved | `2U2 2B2 2U2` | all six centers solved; corners untouched |
-| Last two, row split | same, pairs in rows | `2U2 2L2 2U2` | mirror of the column case; all six solved |
-| Last two, diagonal split | same, pairs diagonal | `U' 2R2 U' D' 2R2` | all six centers solved, four side centers intact; corners untouched |
+| Join the second bar (complete a center) | U has a white bar on top; a second white bar sits in Front's right column | `2R` | slides the second bar up to complete the U center; corners home |
+| Last two, column split | last two colors on U/D, swapped pairs in columns; four side centers solved | `2U2 2B2 2U2` | all six centers solved; corners home |
+| Last two, row split | same, pairs in rows | `2U2 2L2 2U2` | mirror of the column case; all six solved; corners home |
+| Last two, diagonal split | same, pairs diagonal | `U' 2R2 U' D' 2R2` | all six centers solved, four side centers intact (corners move — OK) |
 
 ## Changes
 
@@ -39,8 +41,9 @@ means every corner sticker is back at its home face after the sequence.
 - **Rewrite `centers_page()`** (page 3): keep the "big idea" framing, add the
   step-by-step bar method in prose (make a 2×1 bar on a side face → slide it up
   with the adjacent inner slice → park the finished face on top/bottom →
-  repeat for all but two faces), plus one verified `demo` of the bar lift
-  rendered from a canonical setup state.
+  repeat for all but two faces), plus one verified `demo` of the "join the
+  second bar" move (`2R`) rendered from a canonical setup state where U already
+  has one white bar and Front holds the second.
 - **Add `last_two_centers_page()`** (new page): the genuinely non-obvious
   finale. Verified tile demos of the column case (`2U2 2B2 2U2`) and the
   diagonal case (`U' 2R2 U' D' 2R2`); a one-line note that the row case is the
@@ -59,8 +62,12 @@ means every corner sticker is back at its home face after the sequence.
   what is claimed:
   - bar lift: after setup + `2R`, the U center holds a 2×1 bar of the bar
     color, with corners at home;
-  - column / row / diagonal: after setup + the algorithm, all six centers are
-    solved and the four side faces' centers stay solved throughout.
+  - column / row: after setup + the algorithm, all six centers are solved,
+    the four side faces' centers stay solved, and corners are home (inner-slice
+    only).
+  - diagonal: after setup + the algorithm, all six centers are solved and the
+    four side faces' centers stay solved (corners are NOT asserted — the alg
+    uses outer U/D turns).
 - A passing `python3 -m tests.test_cube` run is the proof the new pages are
   correct; the booklet re-renders from the same verified sequences.
 
